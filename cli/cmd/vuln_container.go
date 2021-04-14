@@ -623,16 +623,6 @@ func buildVulnerabilityReportTable(assessment *api.VulnContainerAssessment) stri
 	return mainReport.String()
 }
 
-type packageTable struct {
-	cveCount       int
-	severity       string
-	packageName    string
-	currentVersion string
-	fixVersion     string
-	packageStatus  string
-	hostCount      int
-}
-
 func aggregatePackages(slice []packageTable, s packageTable) []packageTable {
 	for i, item := range slice {
 		if item.packageName == s.packageName &&
