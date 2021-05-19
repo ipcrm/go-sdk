@@ -403,22 +403,31 @@ func agentTokensToTable(tokens []api.AgentToken) [][]string {
 }
 
 func buildAgentTokenDetailsTable(token api.AgentToken) string {
-	return renderOneLineCustomTable("Agent Token Details",
-		renderSimpleTable([]string{},
-			[][]string{
-				[]string{"TOKEN", token.AccessToken},
-				[]string{"NAME", token.TokenAlias},
-				[]string{"DESCRIPTION", token.Props.Description},
-				[]string{"ACCOUNT", token.Account},
-				[]string{"VERSION", token.Version},
-				[]string{"STATUS", token.PrettyStatus()},
-				[]string{"CREATED AT", token.Props.CreatedTime.Format(time.RFC3339)},
-				[]string{"UPDATED AT", token.LastUpdatedTime.Format(time.RFC3339)},
-			},
-		),
-		tableFunc(func(t *tablewriter.Table) {
-			t.SetBorder(false)
-			t.SetAutoWrapText(false)
-		}),
-	)
+	tokenDetailsTable := Table{
+		label: "token-details",
+		data: [][]string{
+			[]string{"TOKEN", token.AccessToken},
+			[]string{"NAME", token.TokenAlias},
+			[]string{"DESCRIPTION", token.Props.Description},
+			[]string{"ACCOUNT", token.Account},
+			[]string{"VERSION", token.Version},
+			[]string{"STATUS", token.PrettyStatus()},
+			[]string{"CREATED AT", token.Props.CreatedTime.Format(time.RFC3339)},
+			[]string{"UPDATED AT", token.LastUpdatedTime.Format(time.RFC3339)},
+		},
+	}
+
+	table := Table{
+		label: "token-summary",
+		headers: []string{"Agent Token Details"},
+		innerTables: []Table{tokenDetailsTable},
+		opts: []tableOption{
+			tableFunc(func(t *tablewriter.Table) {
+				t.SetBorder(false)
+				t.SetAutoWrapText(false)
+			}),
+		},
+	}
+
+	return table.Render()
 }

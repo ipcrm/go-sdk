@@ -301,7 +301,7 @@ func eventsToTable(events []api.Event) [][]string {
 }
 
 func eventDetailsSummaryReport(details api.EventDetails) string {
-	return renderCustomTable(
+	return eventsBuildTable(
 		[]string{"Event ID", "Type", "Actor", "Model", "Start Time", "End Time"},
 		[][]string{[]string{
 			details.EventID,
@@ -389,7 +389,7 @@ func eventRegionEntitiesTable(regions []api.EventRegionEntity) string {
 		})
 	}
 
-	return renderCustomTable(
+	return eventsBuildTable(
 		[]string{"Region", "Accounts"}, data,
 		eventsTableOptions(),
 	)
@@ -416,7 +416,7 @@ func eventCTUserEntitiesTable(users []api.EventCTUserEntity) string {
 		})
 	}
 
-	return renderCustomTable(
+	return eventsBuildTable(
 		[]string{"Username", "Account ID", "Principal ID", "MFA", "List of APIs", "Regions"}, data,
 		eventsTableOptions(),
 	)
@@ -437,7 +437,7 @@ func eventDnsNameEntitiesTable(dnss []api.EventDnsNameEntity) string {
 		})
 	}
 
-	return renderCustomTable(
+	return eventsBuildTable(
 		[]string{"DNS Hostname", "List of Ports", "Inbound Bytes", "Outboud Bytes"}, data,
 		eventsTableOptions(),
 	)
@@ -453,7 +453,7 @@ func eventAPIEntitiesTable(apis []api.EventAPIEntity) string {
 		data = append(data, []string{a.Service, a.Api})
 	}
 
-	return renderCustomTable(
+	return eventsBuildTable(
 		[]string{"Service", "API"}, data,
 		eventsTableOptions(),
 	)
@@ -469,7 +469,7 @@ func eventSourceIpAddressEntitiesTable(ips []api.EventSourceIpAddressEntity) str
 		data = append(data, []string{ip.IpAddress, ip.Country, ip.Region})
 	}
 
-	return renderCustomTable(
+	return eventsBuildTable(
 		[]string{"Source IP Address", "Country", "Region"}, data,
 		eventsTableOptions(),
 	)
@@ -495,7 +495,7 @@ func eventIpAddressEntitiesTable(ips []api.EventIpAddressEntity) string {
 		})
 	}
 
-	return renderCustomTable(
+	return eventsBuildTable(
 		[]string{"IP Address", "Inbound Bytes", "Outboud Bytes", "List of Ports",
 			"First Time Seen", "Threat Tags", "Threat Source", "Country", "Region",
 		}, data,
@@ -523,7 +523,7 @@ func eventFileDataHashEntitiesTable(dataHashes []api.EventFileDataHashEntity) st
 		})
 	}
 
-	return renderCustomTable(
+	return eventsBuildTable(
 		[]string{"Executable Paths", "File Hash", "Number of Machines", "First Time Seen", "Known Bad"},
 		data, eventsTableOptions(),
 	)
@@ -546,7 +546,7 @@ func eventFileExePathEntitiesTable(exePaths []api.EventFileExePathEntity) string
 		})
 	}
 
-	return renderCustomTable(
+	return eventsBuildTable(
 		[]string{
 			"Executable Path", "First Time Seen", "Last File Hash",
 			"Last Package Name", "Last Version", "Last File Owner",
@@ -575,7 +575,7 @@ func eventProcessEntitiesTable(processes []api.EventProcessEntity) string {
 		})
 	}
 
-	return renderCustomTable(
+	return eventsBuildTable(
 		[]string{"Process ID", "Hostname", "Start Time", "CPU Percentage", "Command"},
 		data, eventsTableOptions(), alignLeft,
 	)
@@ -609,7 +609,7 @@ func eventContainerEntitiesTable(containers []api.EventContainerEntity) string {
 			container.PodIpAddr,
 		})
 	}
-	return renderCustomTable(
+	return eventsBuildTable(
 		[]string{
 			"Image Repo", "Image Tag", "External Connections", "Type",
 			"First Time Seen", "Pod Namespace", "Pod Ipaddress",
@@ -628,7 +628,7 @@ func eventUserEntitiesTable(users []api.EventUserEntity) string {
 		data = append(data, []string{user.Username, user.MachineHostname})
 	}
 
-	return renderCustomTable(
+	return eventsBuildTable(
 		[]string{"Username", "Hostname"},
 		data, eventsTableOptions(),
 	)
@@ -660,7 +660,7 @@ func eventApplicationEntitiesTable(applications []api.EventApplicationEntity) st
 		})
 	}
 
-	return renderCustomTable(
+	return eventsBuildTable(
 		[]string{"Application", "External Connections", "Type", "Earliest Known Time"},
 		data, eventsTableOptions(),
 	)
@@ -729,7 +729,7 @@ func eventRecIDEntitiesTable(records []api.EventRecIDEntity) string {
 			rec.EvalGuid,
 		})
 	}
-	return renderCustomTable(
+	return eventsBuildTable(
 		[]string{"Record ID", "Account ID", "Account Alias",
 			"Description", "Status", "Evaluation Type", "Evaluation GUID",
 		},
@@ -750,7 +750,7 @@ func eventViolationReasonEntitiesTable(reasons []api.EventViolationReasonEntity)
 		})
 	}
 
-	return renderCustomTable(
+	return eventsBuildTable(
 		[]string{"Violation ID", "Reason"},
 		data, eventsTableOptions(),
 	)
@@ -769,7 +769,7 @@ func eventResourceEntitiesTable(resources []api.EventResourceEntity) string {
 		})
 	}
 
-	return renderCustomTable(
+	return eventsBuildTable(
 		[]string{"Name", "Value"},
 		data, eventsTableOptions(),
 	)
@@ -789,7 +789,7 @@ func eventNewViolationEntitiesTable(violations []api.EventNewViolationEntity) st
 		})
 	}
 
-	return renderCustomTable(
+	return eventsBuildTable(
 		[]string{"Violation ID", "Reason", "Resource"},
 		data, eventsTableOptions(),
 	)
@@ -812,7 +812,7 @@ func eventMachineEntitiesTable(machines []api.EventMachineEntity) string {
 		})
 	}
 
-	return renderCustomTable(
+	return eventsBuildTable(
 		[]string{"Hostname", "External IP", "Instance ID",
 			"Instance Name", "CPU Percentage", "Internal Ipaddress"},
 		data, eventsTableOptions(),

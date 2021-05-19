@@ -68,59 +68,6 @@ func TestRenderSimpleTableLongDescriptions(t *testing.T) {
 		"tables are not being formatted correctly")
 }
 
-func TestRenderCustomTable(t *testing.T) {
-	detailsTable := [][]string{
-		[]string{"KEY1", "VALUE1"},
-		[]string{"KEY2", "VALUE2"},
-		[]string{"KEY3", "VALUE3"},
-	}
-	summaryTable := [][]string{
-		[]string{"Severity1", "1"},
-		[]string{"Secerity2", "2"},
-		[]string{"Secerity3", "0"},
-	}
-	expectedTable := strings.TrimPrefix(`
-   REPORT DETAILS       RECOMMENDATIONS     
--------------------+------------------------
-    KEY1  VALUE1       SEVERITY    COUNT    
-    KEY2  VALUE2     ------------+--------  
-    KEY3  VALUE3       Severity1       1    
-                       Secerity2       2    
-                       Secerity3       0    
-                                            
-`, "\n")
-
-	assert.Equal(t,
-		renderCustomTable(
-			[]string{
-				"Report Details",
-				"Recommendations",
-			},
-			[][]string{[]string{
-				renderCustomTable([]string{}, detailsTable,
-					tableFunc(func(t *tablewriter.Table) {
-						t.SetBorder(false)
-						t.SetColumnSeparator("")
-						t.SetAlignment(tablewriter.ALIGN_LEFT)
-					}),
-				),
-				renderCustomTable([]string{"Severity", "Count"}, summaryTable,
-					tableFunc(func(t *tablewriter.Table) {
-						t.SetBorder(false)
-						t.SetColumnSeparator(" ")
-					}),
-				),
-			}},
-			tableFunc(func(t *tablewriter.Table) {
-				t.SetBorder(false)
-				t.SetAutoWrapText(false)
-				t.SetColumnSeparator(" ")
-			}),
-		),
-		expectedTable,
-		"tables are not being formatted correctly")
-}
-
 func TestSimpleTable(t *testing.T) {
 	expectedTable := strings.TrimPrefix(`
   KEY    VALUE   
