@@ -543,18 +543,21 @@ func buildVulnerabilityDetailsReportTable(details vulnerabilityDetailsReport) st
 		} else {
 			vulnImageTable := vulContainerImageLayersToTable(details.VulnerabilityDetails)
 
-			report.WriteString(
-				renderCustomTable(
-					[]string{"CVE ID", "Severity", "Package", "Current Version",
-						"Fix Version", "Introduced in Layer"},
-					vulnImageTable,
+			table := Table{
+				headers: []string{"CVE ID", "Severity", "Package", "Current Version", "Fix Version", "Introduced in Layer"},
+				data: vulnImageTable,
+				opts: []tableOption{
 					tableFunc(func(t *tablewriter.Table) {
 						t.SetBorder(false)
 						t.SetRowLine(true)
 						t.SetColumnSeparator(" ")
 						t.SetAlignment(tablewriter.ALIGN_LEFT)
 					}),
-				),
+				},
+			}
+
+			report.WriteString(
+				table.Render(),
 			)
 
 			if vulFiltersEnabled() {
@@ -576,36 +579,49 @@ func buildVulnerabilitySummaryReportTable(assessment *api.VulnContainerAssessmen
 		return fmt.Sprintf("Great news! This container image has no vulnerabilities... (time for %s)\n", randomEmoji())
 	}
 
-	mainReport := &strings.Builder{}
-	mainReport.WriteString(
-		renderCustomTable(
-			[]string{
+	vulnContainerImageTable := Table{
+		headers: []string{},
+		data: vulContainerImageToTable(assessment.Image),
+		label: "container-vulnerability-details",
+		opts: []tableOption{
+				tableFunc(func(t *tablewriter.Table) {
+					t.SetBorder(false)
+					t.SetColumnSeparator(" ")
+				}),
+		},
+	}
+
+	vulnContainerCountsTable := Table{
+		headers: []string{"Severity", "Count", "Fixable"},
+		data: vulContainerAssessmentToCountsTable(assessment),
+		label: "container-vulnerability-counts",
+		opts: []tableOption{
+				tableFunc(func(t *tablewriter.Table) {
+					t.SetBorder(false)
+					t.SetColumnSeparator(" ")
+				}),
+		},
+	}
+
+	reportTable := Table{
+		label: "sumary-report",
+		headers: []string{
 				"Container Image Details",
 				"Vulnerabilities",
-			},
-			[][]string{{
-				renderCustomTable([]string{},
-					vulContainerImageToTable(assessment.Image),
-					tableFunc(func(t *tablewriter.Table) {
-						t.SetBorder(false)
-						t.SetColumnSeparator("")
-						t.SetAlignment(tablewriter.ALIGN_LEFT)
-					}),
-				),
-				renderCustomTable([]string{"Severity", "Count", "Fixable"},
-					vulContainerAssessmentToCountsTable(assessment),
-					tableFunc(func(t *tablewriter.Table) {
-						t.SetBorder(false)
-						t.SetColumnSeparator(" ")
-					}),
-				),
-			}},
+		},
+		innerTables: []Table{vulnContainerImageTable, vulnContainerCountsTable},
+		opts: []tableOption{
 			tableFunc(func(t *tablewriter.Table) {
 				t.SetBorder(false)
 				t.SetAutoWrapText(false)
 				t.SetColumnSeparator(" ")
 			}),
-		),
+		},
+	}
+
+	mainReport := &strings.Builder{}
+	mainReport.WriteString(
+		reportTable.Render(),
 	)
 
 	return mainReport.String()

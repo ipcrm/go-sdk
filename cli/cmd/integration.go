@@ -75,11 +75,13 @@ var (
 				return nil
 			}
 
+			t := Table{
+				headers: []string{"Integration GUID", "Name", "Type", "Status", "State"},
+				data:    integrationsToTable(integrations.Data),
+			}
+
 			cli.OutputHuman(
-				renderSimpleTable(
-					[]string{"Integration GUID", "Name", "Type", "Status", "State"},
-					integrationsToTable(integrations.Data),
-				),
+				t.Render(),
 			)
 			return nil
 		},
@@ -106,11 +108,13 @@ var (
 				return errors.New(msg)
 			}
 
+			t := Table{
+				headers: []string{"Integration GUID", "Name", "Type", "Status", "State"},
+				data:    integrationsToTable(integration.Data),
+			}
+
 			cli.OutputHuman(
-				renderSimpleTable(
-					[]string{"Integration GUID", "Name", "Type", "Status", "State"},
-					integrationsToTable(integration.Data),
-				),
+				t.Render(),
 			)
 			cli.OutputHuman("\n")
 			cli.OutputHuman(buildIntDetailsTable(integration.Data))
@@ -318,19 +322,27 @@ func buildIntDetailsTable(integrations []api.RawIntegration) string {
 	details = append(details, []string{"UPDATED BY", integration.CreatedOrUpdatedBy})
 	details = append(details, buildIntegrationState(integration.State)...)
 
-	return renderOneLineCustomTable("INTEGRATION DETAILS",
-		renderCustomTable([]string{}, details,
-			tableFunc(func(t *tablewriter.Table) {
-				t.SetBorder(false)
-				t.SetColumnSeparator(" ")
-				t.SetAutoWrapText(false)
-			}),
-		),
-		tableFunc(func(t *tablewriter.Table) {
-			t.SetBorder(false)
-			t.SetAutoWrapText(false)
-		}),
-	)
+	t := Table{
+		headers: []string{},
+		data: details,
+		label: "integration-details",
+		opts: []tableOption{tableFunc(func(t *tablewriter.Table) {
+						t.SetBorder(false)
+						t.SetColumnSeparator(" ")
+						t.SetAutoWrapText(false)
+					})},
+	}
+
+	ot := Table{
+		headers: []string{"INTEGRATION DETAILS"},
+		innerTables: []Table{t},
+		opts: []tableOption{tableFunc(func(t *tablewriter.Table) {
+						t.SetBorder(false)
+						t.SetAutoWrapText(false)
+					})},
+	}
+
+	return ot.Render()
 }
 
 func buildIntegrationState(state *api.IntegrationState) [][]string {

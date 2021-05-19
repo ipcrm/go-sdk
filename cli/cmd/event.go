@@ -264,6 +264,15 @@ func eventLinkBuilder(id string) string {
 	return fmt.Sprintf("https://%s.lacework.net/ui/investigation/recents/EventDossier-%s", cli.Account, id)
 }
 
+func eventsBuildTable(headers []string, data [][]string, opts ...tableOption) string {
+	t := Table{
+		headers: headers,
+		data: data,
+		opts: opts,
+	}
+	return t.Render()
+}
+
 // easily add or remove borders to all event details tables
 func eventsTableOptions() tableOption {
 	return tableFunc(func(t *tablewriter.Table) {
@@ -677,11 +686,9 @@ func eventCustomRuleEntityTable(rule api.EventCustomRuleEntity) string {
 		t.SetAutoWrapText(false)
 	})
 
-	return renderCustomTable(
+	return eventsBuildTable(
 		[]string{"Rule GUID", "Last Updated User", "Last Updated Time"},
-		[][]string{[]string{
-			rule.RuleGuid, rule.LastUpdatedUser, rule.LastUpdatedTime.UTC().Format(time.RFC3339),
-		}},
+		[][]string{{rule.RuleGuid, rule.LastUpdatedUser, rule.LastUpdatedTime.UTC().Format(time.RFC3339)}},
 		eventsTableOptions(), autoWrapText,
 	)
 }
@@ -698,7 +705,7 @@ func eventCustomRuleDisplayFilerTable(rule api.EventCustomRuleEntity) string {
 		t.SetAlignment(tablewriter.ALIGN_LEFT)
 	})
 
-	return renderCustomTable(
+	return eventsBuildTable(
 		[]string{"Display Filter"},
 		[][]string{[]string{filter}},
 		eventsTableOptions(), tblOption,

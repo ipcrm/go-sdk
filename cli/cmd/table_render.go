@@ -25,11 +25,24 @@ import (
 )
 
 type Table struct {
+	// Headers for each table field
 	headers     []string
+
+	// Data to be included in this table
 	data        [][]string
+
+	// If this table is wrapping other tables, supply those other tables here.
+	// IMPORTANT: The headers for this table are auto-assigned to each inner table based on postion.
+	// Example: 2 hears, 2 inner tables.  Inner table 1 is shown under header 1.
 	innerTables []Table
+
+	// Supply table options to customize behavior.  See tablewriter interface for details.
 	opts        []tableOption
+
+	// Future use; you SHOULD populate this with a human readable, lowercase, hyphenated text
 	label       string
+
+	// Future use; should this table output be rendered as a CSV
 	renderAsCsv bool
 }
 
@@ -138,18 +151,12 @@ func (t *Table) RenderAsCSV() string {
 // across the entire project
 func renderSimpleTable(headers []string, data [][]string) string {
 	var (
-		tblBldr = &strings.Builder{}
-		tbl     = tablewriter.NewWriter(tblBldr)
+		table = Table{
+			headers: headers,
+			data: data,
+		}
 	)
-	tbl.SetHeader(headers)
-	tbl.SetRowLine(false)
-	tbl.SetBorder(false)
-	tbl.SetAutoWrapText(true)
-	tbl.SetAlignment(tablewriter.ALIGN_LEFT)
-	tbl.SetColumnSeparator(" ")
-	tbl.AppendBulk(data)
-	tbl.Render()
-	return tblBldr.String()
+	return table.Render()
 }
 
 type tableOption interface {
