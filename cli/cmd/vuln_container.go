@@ -543,21 +543,19 @@ func buildVulnerabilityDetailsReportTable(details vulnerabilityDetailsReport) st
 		} else {
 			vulnImageTable := vulContainerImageLayersToTable(details.VulnerabilityDetails)
 
-			table := Table{
-				headers: []string{"CVE ID", "Severity", "Package", "Current Version", "Fix Version", "Introduced in Layer"},
-				data: vulnImageTable,
-				opts: []tableOption{
-					tableFunc(func(t *tablewriter.Table) {
+			report.WriteString(
+				renderCustomTable(
+					 "summary",
+					 []string{"CVE ID", "Severity", "Package", "Current Version", "Fix Version", "Introduced in Layer"},
+					 vulnImageTable,
+					 nil,
+					 tableFunc(func(t *tablewriter.Table) {
 						t.SetBorder(false)
 						t.SetRowLine(true)
 						t.SetColumnSeparator(" ")
 						t.SetAlignment(tablewriter.ALIGN_LEFT)
-					}),
-				},
-			}
-
-			report.WriteString(
-				table.Render(),
+					 }),
+				),
 			)
 
 			if vulFiltersEnabled() {
@@ -579,49 +577,40 @@ func buildVulnerabilitySummaryReportTable(assessment *api.VulnContainerAssessmen
 		return fmt.Sprintf("Great news! This container image has no vulnerabilities... (time for %s)\n", randomEmoji())
 	}
 
-	vulnContainerImageTable := Table{
-		headers: []string{},
-		data: vulContainerImageToTable(assessment.Image),
-		label: "container-vulnerability-details",
-		opts: []tableOption{
-				tableFunc(func(t *tablewriter.Table) {
-					t.SetBorder(false)
-					t.SetColumnSeparator(" ")
-				}),
-		},
-	}
-
-	vulnContainerCountsTable := Table{
-		headers: []string{"Severity", "Count", "Fixable"},
-		data: vulContainerAssessmentToCountsTable(assessment),
-		label: "container-vulnerability-counts",
-		opts: []tableOption{
-				tableFunc(func(t *tablewriter.Table) {
-					t.SetBorder(false)
-					t.SetColumnSeparator(" ")
-				}),
-		},
-	}
-
-	reportTable := Table{
-		label: "sumary-report",
-		headers: []string{
-				"Container Image Details",
-				"Vulnerabilities",
-		},
-		innerTables: []Table{vulnContainerImageTable, vulnContainerCountsTable},
-		opts: []tableOption{
+	mainReport := &strings.Builder{}
+	mainReport.WriteString(
+		renderCustomTable(
+			"summary-report",
+			[]string{"Container Image Details", "Vulnerabilities"},
+			nil,
+			[]*Table{
+				NewTable(
+					"container-vulnerability-details",
+					[]string{},
+					vulContainerImageToTable(assessment.Image),
+					nil,
+					tableFunc(func(t *tablewriter.Table) {
+						t.SetBorder(false)
+						t.SetColumnSeparator(" ")
+					}),
+			  ),
+				NewTable(
+					"container-vulnerability-counts",
+					[]string{"Severity", "Count", "Fixable"},
+					vulContainerAssessmentToCountsTable(assessment),
+					nil,
+					tableFunc(func(t *tablewriter.Table) {
+						t.SetBorder(false)
+						t.SetColumnSeparator(" ")
+					}),
+			  ),
+			},
 			tableFunc(func(t *tablewriter.Table) {
 				t.SetBorder(false)
 				t.SetAutoWrapText(false)
 				t.SetColumnSeparator(" ")
 			}),
-		},
-	}
-
-	mainReport := &strings.Builder{}
-	mainReport.WriteString(
-		reportTable.Render(),
+		),
 	)
 
 	return mainReport.String()

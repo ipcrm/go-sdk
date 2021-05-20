@@ -135,21 +135,19 @@ func runInstallCommandOnRemoteHost(runner *lwrunner.Runner, cmd string) error {
 		return errors.Wrap(formatRunnerError(stdout, stderr, err), "unable to install agent on the remote host")
 	}
 
-	table := Table{
-		headers: []string{"Installation Details"},
-		data: [][]string{[]string{stdout.String()}},
-		opts: []tableOption{
+	cli.OutputHuman("Lacework agent installed successfully on host %s\n\n", runner.Hostname)
+	cli.OutputHuman(
+		renderCustomTable(
+			"installation-details",
+			[]string{"Installation Details"},
+			[][]string{[]string{stdout.String()}},
+			nil,
 			tableFunc(func(t *tablewriter.Table) {
 				t.SetBorder(false)
 				t.SetColumnSeparator(" ")
 				t.SetAutoWrapText(false)
 			}),
-		},
-	}
-
-	cli.OutputHuman("Lacework agent installed successfully on host %s\n\n", runner.Hostname)
-	cli.OutputHuman(
-		table.Render(),
+		),
   )
 	return nil
 }

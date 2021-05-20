@@ -403,9 +403,10 @@ func agentTokensToTable(tokens []api.AgentToken) [][]string {
 }
 
 func buildAgentTokenDetailsTable(token api.AgentToken) string {
-	tokenDetailsTable := Table{
-		label: "token-details",
-		data: [][]string{
+	tokenDetailsTable := NewTable(
+		"token-details",
+		[]string{}, 
+		[][]string{
 			[]string{"TOKEN", token.AccessToken},
 			[]string{"NAME", token.TokenAlias},
 			[]string{"DESCRIPTION", token.Props.Description},
@@ -415,19 +416,17 @@ func buildAgentTokenDetailsTable(token api.AgentToken) string {
 			[]string{"CREATED AT", token.Props.CreatedTime.Format(time.RFC3339)},
 			[]string{"UPDATED AT", token.LastUpdatedTime.Format(time.RFC3339)},
 		},
-	}
+		nil,
+  )
 
-	table := Table{
-		label: "token-summary",
-		headers: []string{"Agent Token Details"},
-		innerTables: []Table{tokenDetailsTable},
-		opts: []tableOption{
-			tableFunc(func(t *tablewriter.Table) {
-				t.SetBorder(false)
-				t.SetAutoWrapText(false)
-			}),
-		},
-	}
-
-	return table.Render()
+	return renderCustomTable(
+		"token-summary", 
+		[]string{"Agent Token Details"},
+		nil,
+		[]*Table{tokenDetailsTable},
+		tableFunc(func(t *tablewriter.Table) {
+			t.SetBorder(false)
+			t.SetAutoWrapText(false)
+		}),
+  )
 }

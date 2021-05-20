@@ -265,12 +265,7 @@ func eventLinkBuilder(id string) string {
 }
 
 func eventsBuildTable(headers []string, data [][]string, opts ...tableOption) string {
-	t := Table{
-		headers: headers,
-		data: data,
-		opts: opts,
-	}
-	return t.Render()
+	return renderCustomTable("", headers, data, nil, opts...)
 }
 
 // easily add or remove borders to all event details tables

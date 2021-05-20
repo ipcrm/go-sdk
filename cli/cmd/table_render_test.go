@@ -42,7 +42,7 @@ func TestRenderSimpleTable(t *testing.T) {
 				[]string{"key1", "value1"},
 				[]string{"key2", "value2"},
 				[]string{"key3", "value3"},
-			}),
+		}),
 		expectedTable,
 		"tables are not being formatted correctly")
 }
@@ -77,17 +77,15 @@ func TestSimpleTable(t *testing.T) {
   key3   value3  
 `, "\n")
 
-  table := Table{
-		headers: []string{"KEY", "VALUE"},
-		data: [][]string{
-						{"key1", "value1"},
-						{"key2", "value2"},
-						{"key3", "value3"},
-					},
-  }
-
 	assert.Equal(t,
-	  table.Render(),
+		renderSimpleTable(
+			[]string{"KEY", "VALUE"},
+			[][]string{
+							{"key1", "value1"},
+							{"key2", "value2"},
+							{"key3", "value3"},
+			},
+		),
 		expectedTable,
 		"tables are not being formatted correctly")
 }
@@ -102,16 +100,14 @@ func TestSimpleTableLongDescriptions(t *testing.T) {
   2    No a very long description      
 `, "\n")
 
-	table := Table{
-		headers: []string{"ID", "Description"},
-		data: [][]string{
-			{"1", "This is a long long very long description that will be splitted into multiple lines"},
-			{"2", "No a very long description"},
-		},
-	}
-
 	assert.Equal(t,
-	  table.Render(),
+		renderSimpleTable(
+			[]string{"ID", "Description"},
+			[][]string{
+				{"1", "This is a long long very long description that will be splitted into multiple lines"},
+				{"2", "No a very long description"},
+			},
+		),
 		expectedTable,
 		"tables are not being formatted correctly")
 }
@@ -138,49 +134,40 @@ func TestCustomTable(t *testing.T) {
                                             
 `, "\n")
 
-	deets := Table{
-		headers: []string{},
-		data: detailsTable,
-		opts: []tableOption{
+	assert.Equal(t,
+		renderCustomTable(
+			"overview",
+		  []string{"Report Details", "Recommendations"},
+			nil,
+			[]*Table{
+				NewTable(
+					"details",
+					nil,
+					detailsTable,
+					nil,
 					tableFunc(func(t *tablewriter.Table) {
 						t.SetBorder(false)
 						t.SetColumnSeparator("")
 						t.SetAlignment(tablewriter.ALIGN_LEFT)
 					}),
-		},
-	}
-
-	summary := Table{
-		headers: []string{"Severity", "Count"},
-		data: summaryTable,
-		opts: []tableOption{
+				),
+				NewTable(
+					"summary",
+					[]string{"Severity", "Count"},
+					summaryTable,
+					nil,
 					tableFunc(func(t *tablewriter.Table) {
 						t.SetBorder(false)
 						t.SetColumnSeparator(" ")
 					}),
-		},
-	}
-
-	table := Table{
-		headers: []string{
-				"Report Details",
-				"Recommendations",
-  	},
-		innerTables: []Table{
-			deets,
-			summary,
-		},
-		opts: []tableOption{
+				),
+			},
 			tableFunc(func(t *tablewriter.Table) {
 				t.SetBorder(false)
 				t.SetAutoWrapText(false)
 				t.SetColumnSeparator(" ")
 			}),
-		},
-	}
-
-	assert.Equal(t,
-  	table.Render(),
+		),
 		expectedTable,
 		"tables are not being formatted correctly")
 }

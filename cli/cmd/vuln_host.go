@@ -616,9 +616,10 @@ func filterHostVulnCVEs(cves []api.HostVulnCVE) ([]api.HostVulnCVE, int, int) {
 
 func hostVulnHostDetailsMainReportTable(assessment api.HostVulnHostAssessment) string {
 
-	machineDetailsTable := Table{
-		label: "machine-details",
-		data: [][]string{
+	machineDetailsTable := NewTable(
+		"machine-details",
+		nil,
+		[][]string{
 			{"Machine ID", assessment.Host.MachineID},
 			{"Hostname", assessment.Host.Hostname},
 			{"External IP", assessment.Host.Tags.ExternalIP},
@@ -630,46 +631,38 @@ func hostVulnHostDetailsMainReportTable(assessment api.HostVulnHostAssessment) s
 			{"Instance ID", assessment.Host.Tags.InstanceID},
 			{"AMI", assessment.Host.Tags.AmiID},
 		},
-		opts: []tableOption{
-					tableFunc(func(t *tablewriter.Table) {
-						t.SetColumnSeparator("")
-						t.SetBorder(false)
-						t.SetAlignment(tablewriter.ALIGN_LEFT)
-					}),
-		},
-	}
+		nil,
+		tableFunc(func(t *tablewriter.Table) {
+			t.SetColumnSeparator("")
+			t.SetBorder(false)
+			t.SetAlignment(tablewriter.ALIGN_LEFT)
+		}),
+	)
 
-	hostVulnCountsTable := Table{
-		label: "host-vulnerabilities-counts",
-		headers: []string{"Severity", "Count", "Fixable"},
-		data: hostVulnAssessmentToCountsTable(assessment.VulnerabilityCounts()),
-		opts: []tableOption{
-					tableFunc(func(t *tablewriter.Table) {
-						t.SetBorder(false)
-						t.SetColumnSeparator(" ")
-					}),
-		},
-	}
+	hostVulnCountsTable := NewTable(
+		"host-vulnerabilities-counts",
+		[]string{"Severity", "Count", "Fixable"},
+		hostVulnAssessmentToCountsTable(assessment.VulnerabilityCounts()),
+		nil,
+		tableFunc(func(t *tablewriter.Table) {
+			t.SetBorder(false)
+			t.SetColumnSeparator(" ")
+		}),
+	)
 
-	table := Table{
-		label: "host-vulnerabilities-summary",
-		headers: []string{"Host Details", "Vulnerabilities"},
-		innerTables: []Table{
-			machineDetailsTable,
-			hostVulnCountsTable,
-		},
-		opts: []tableOption{
+	mainBldr := &strings.Builder{}
+	mainBldr.WriteString(
+		renderCustomTable(
+			"host-vulnerabilities-summary",
+		  []string{"Host Details", "Vulnerabilities"},
+			nil,
+			[]*Table{machineDetailsTable, hostVulnCountsTable},
 			tableFunc(func(t *tablewriter.Table) {
 				t.SetBorder(false)
 				t.SetAutoWrapText(false)
 				t.SetColumnSeparator(" ")
 			}),
-		},
-	}
-
-	mainBldr := &strings.Builder{}
-	mainBldr.WriteString(
-		table.Render(),
+		),
 	)
 
 	mainBldr.WriteString("\n")
@@ -855,32 +848,29 @@ func hostScanPackagesVulnToTable(scan *api.HostVulnScanPkgManifestResponse) stri
 		)
 	}
 
-	vulnCountsTable := Table{
-		label: "vulnerabilities-counts",
-		headers: []string{"Severity", "Count", "Fixable"},
-		data: hostVulnAssessmentToCountsTable(scan.VulnerabilityCounts()),
-		opts: []tableOption{
-				tableFunc(func(t *tablewriter.Table) {
-					t.SetBorder(false)
-					t.SetColumnSeparator(" ")
-				}),
-		},
-	}
-
-	table := Table{
-		label: "vulnerabilities-summary",
-		headers: []string{"Vulnerabilities"},
-		innerTables: []Table{vulnCountsTable},
-		opts: []tableOption{
+	mainBldr.WriteString(
+		renderCustomTable(
+			"vulnerabilities-summary",
+			[]string{"Vulnerabilities"},
+			nil,
+			[]*Table{
+				NewTable(
+					"vulnerabilities-counts",
+					[]string{"Severity", "Count", "Fixable"},
+					hostVulnAssessmentToCountsTable(scan.VulnerabilityCounts()),
+					nil,
+					tableFunc(func(t *tablewriter.Table) {
+						t.SetBorder(false)
+						t.SetColumnSeparator(" ")
+					}),
+				),
+			},
+			nil,
 			tableFunc(func(t *tablewriter.Table) {
 				t.SetBorder(false)
 				t.SetAutoWrapText(false)
 			}),
-		},
-	}
-
-	mainBldr.WriteString(
-		table.Render(),
+		),
 	)
 
 	mainBldr.WriteString(renderSimpleTable(headers, rows))

@@ -19,12 +19,14 @@
 package cmd
 
 import (
+	"log"
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
 )
 
-// Used to create a table that can be rendered to the console or as a CSV
+// Table struct used for both console tables as well as CSV.  Do NOT use directly, use renderSimpleTable,
+// renderCustomTable, or NewTable
 type Table struct {
 	// Headers for each table field
 	headers     []string
@@ -35,7 +37,7 @@ type Table struct {
 	// If this table is wrapping other tables, supply those other tables here.
 	// IMPORTANT: The headers for this table are auto-assigned to each inner table based on postion.
 	// Example: 2 hears, 2 inner tables.  Inner table 1 is shown under header 1.
-	innerTables []Table
+	innerTables []*Table
 
 	// Supply table options to customize behavior.  See tablewriter interface for details.
 	opts        []tableOption
@@ -145,21 +147,6 @@ func (t *Table) RenderAsCSV() string {
 	return outstring
 }
 
-// renderSimpleTable is used to render any simple table within the Lacework CLI,
-// every command should leverage this function unless there are extra customizations
-// required, if so, use instead Table. The benefit of this function
-// is the ability to switch/update the look and feel of the human-readable format
-// across the entire project
-func renderSimpleTable(headers []string, data [][]string) string {
-	var (
-		table = Table{
-			headers: headers,
-			data: data,
-		}
-	)
-	return table.Render()
-}
-
 type tableOption interface {
 	apply(t *tablewriter.Table)
 }
@@ -168,4 +155,36 @@ type tableFunc func(t *tablewriter.Table)
 
 func (fn tableFunc) apply(t *tablewriter.Table) {
 	fn(t)
+}
+
+func NewTable(label string, headers []string, data [][]string, innerTables []*Table, opts ...tableOption) *Table {
+	// TODO This an OK way to do this validation?
+	if innerTables != nil && data != nil {
+		log.Fatal("Cannot supply both innerTables and data to NewTable")
+	}
+
+	t := new(Table)
+	t.headers = headers
+	t.innerTables = innerTables
+	t.data = data
+	t.opts = opts
+	t.label = label
+	return t
+}
+
+// renderCustomTable is used to render tables that have more complex requirements than is possible with
+// renderSimpleTable.  renderCustomTable allows supplying visual format customizations to the underlying tablewriter
+// library via `opts`.  In addition, tables can be nested using renderCustomTable via `innerTables`.  Tables to be
+// passed to `innerTables` should be created via `NewTable`
+func renderCustomTable(label string, headers []string, data [][]string, innerTables []*Table, opts ...tableOption) string {
+	return NewTable(label, headers, data, innerTables, opts...).Render()
+}
+
+// renderSimpleTable is used to render any simple table within the Lacework CLI,
+// every command should leverage this function unless there are extra customizations
+// required, if so, use instead renderCustomTable or NewTable. The benefit of this function
+// is the ability to switch/update the look and feel of the human-readable format
+// across the entire project
+func renderSimpleTable(headers []string, data [][]string) string {
+	return renderCustomTable("", headers, data, nil)
 }

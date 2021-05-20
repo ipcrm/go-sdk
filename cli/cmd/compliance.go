@@ -212,70 +212,57 @@ func complianceReportRecommendationsTable(recommendations []api.ComplianceRecomm
 
 func buildComplianceReportTable(detailsTable, summaryTable, recommendationsTable [][]string, filteredOutput string) string {
 	mainReport := &strings.Builder{}
-
-	dtable := Table{
-		data: detailsTable,
-		label: "details",
-		opts: []tableOption{
-						tableFunc(func(t *tablewriter.Table) {
-							t.SetBorder(false)
-							t.SetColumnSeparator("")
-							t.SetAlignment(tablewriter.ALIGN_LEFT)
-						}),
-		      },
-	}
-
-	sTable := Table{
-		headers: []string{"Severity", "Count"},
-		label: "summary",
-		data: summaryTable,
-		opts: []tableOption{
+	mainReport.WriteString(
+		renderCustomTable(
+			"overview",
+			[]string{"Compliance Report Details", "Non-Compliant Recommendations"},
+			nil,
+			[]*Table{
+				NewTable(
+					"details",
+					nil,
+					detailsTable,
+					nil,
+					tableFunc(func(t *tablewriter.Table) {
+						t.SetBorder(false)
+						t.SetColumnSeparator("")
+						t.SetAlignment(tablewriter.ALIGN_LEFT)
+					}),
+				),
+				NewTable(
+					"summary",
+					nil,
+					summaryTable,
+					nil,
 					tableFunc(func(t *tablewriter.Table) {
 						t.SetBorder(false)
 						t.SetColumnSeparator(" ")
 					}),
-		},
-	}
-
-	table := Table{
-		headers: []string{
-						   "Compliance Report Details",
-							 "Non-Compliant Recommendations",
-		},
-		label: "overview",
-		innerTables: []Table{
-			dtable,
-			sTable,
-		},
-		opts: []tableOption{
+				),
+			},
 			tableFunc(func(t *tablewriter.Table) {
 				t.SetBorder(false)
 				t.SetAutoWrapText(false)
 				t.SetColumnSeparator(" ")
 			}),
-		},
-	}
-
-	mainReport.WriteString(
-		table.Render(),
+		),
 	)
 
 	if compCmdState.Details || complianceFiltersEnabled() {
-		table := Table{
-			headers: []string{"ID", "Recommendation", "Status", "Severity", "Service", "Affected", "Assessed"},
-			data: recommendationsTable,
-			opts: []tableOption{
+		mainReport.WriteString(
+			renderCustomTable(
+				"recommendations",
+				[]string{"ID", "Recommendation", "Status", "Severity", "Service", "Affected", "Assessed"},
+				recommendationsTable,
+				nil,
 				tableFunc(func(t *tablewriter.Table) {
 					t.SetBorder(false)
 					t.SetRowLine(true)
 					t.SetColumnSeparator(" ")
 				}),
-			},
-		}
-
-		mainReport.WriteString(
-			table.Render(),
+			),
 		)
+
 		if filteredOutput != "" {
 			mainReport.WriteString(filteredOutput)
 		}
