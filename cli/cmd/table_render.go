@@ -24,6 +24,7 @@ import (
 	"github.com/olekukonko/tablewriter"
 )
 
+// Used to create a table that can be rendered to the console or as a CSV
 type Table struct {
 	// Headers for each table field
 	headers     []string
@@ -125,7 +126,7 @@ func (t *Table) Data() [][]string {
 	return newData
 }
 
-// Testing
+// Convert table to CSV format for output
 func (t *Table) RenderAsCSV() string {
 	outstring := ""
 	if len(t.innerTables) == 0 {
