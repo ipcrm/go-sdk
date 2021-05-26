@@ -19,7 +19,9 @@
 package cmd
 
 import (
+	"fmt"
 	"log"
+	"os"
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
@@ -42,11 +44,13 @@ type Table struct {
 	// Supply table options to customize behavior.  See tablewriter interface for details.
 	opts        []tableOption
 
-	// Future use; you SHOULD populate this with a human readable, lowercase, hyphenated text
+	// Future use; you SHOULD populate this with a human readable, lowercase, hyphenated text, or set as "" to not be able
+	// to use in csv printing
 	label       string
 
 	// Future use; should this table output be rendered as a CSV
 	renderAsCsv bool
+	csvSection  string
 }
 
 // Apply any custom options
@@ -56,10 +60,8 @@ func (t *Table) ApplyOpts(tbl *tablewriter.Table) {
 	}
 }
 
-// Testing
+// Render table
 func (t *Table) Render() string {
-	// TODO
-	// validate only data or innerTables supplied
 	var returnString string
 
 	if t.renderAsCsv {
@@ -130,20 +132,61 @@ func (t *Table) Data() [][]string {
 
 // Convert table to CSV format for output
 func (t *Table) RenderAsCSV() string {
-	outstring := ""
-	if len(t.innerTables) == 0 {
+
+	// Build list of all labels
+	validSections := []string{}
+
+	if t.label != "" {
+		validSections = append(validSections, t.label)
+	}
+	for _, it := range t.innerTables {
+		if it.label != "" {
+		  validSections = append(validSections, it.label)
+		}
+	}
+
+	// Check if section has been set or if there is only one valid section just set it automatically
+	if len(validSections) > 1 && t.csvSection == "" {
+		fmt.Printf("You must supply a section when requesting CSV output. Use --csv_section. Valid sections are %v\n", strings.Join(validSections, ", "))
+		os.Exit(1)
+	} else if len(validSections) == 1 && t.csvSection == "" {
+		t.csvSection = validSections[0]
+	}
+
+	// Find the table we are supposed to print
+	// var data [][]string
+	// var headers []string
+	// if t.csvSection == t.label {
+		// data = t.Data()
+		// headers = t.Headers()
+	// } else {
+		// for _, it := range t.innerTables {
+			// if it.label == t.csvSection {
+				// data = it.Data()
+				// headers = it.Headers()
+			// }
+		// }
+	// }
+
+	var outstring string
+	if t.label == t.csvSection && len(t.innerTables) == 0 {
 		outstring = renderTableAsCSV(t.Headers(), t.Data())
 	} else {
 		csvOutRaw := []string{}
 
 		for idx, it := range t.innerTables {
-			csvOutRaw = append(csvOutRaw, t.Headers()[idx])
-			csvOutRaw = append(csvOutRaw, it.RenderAsCSV())
-			csvOutRaw = append(csvOutRaw, "\n")
+			if it.label == t.csvSection {
+				if len(t.Headers()) < idx {
+					csvOutRaw = append(csvOutRaw, t.Headers()[idx])
+				}
+				csvOutRaw = append(csvOutRaw, it.RenderAsCSV())
+				csvOutRaw = append(csvOutRaw, "\n")
+			}
 		}
 		outstring = strings.Join(csvOutRaw, "")
 	}
 
+	// return renderTableAsCSV(headers, data)
 	return outstring
 }
 
@@ -169,6 +212,14 @@ func NewTable(label string, headers []string, data [][]string, innerTables []*Ta
 	t.data = data
 	t.opts = opts
 	t.label = label
+
+
+	// TODO Acceptable access?
+	if cli.csvOutput {
+		t.renderAsCsv = true
+		t.csvSection = cli.csvSection
+	}
+
 	return t
 }
 

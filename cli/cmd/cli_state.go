@@ -55,6 +55,8 @@ type cliState struct {
 	workers        sync.WaitGroup
 	spinner        *spinner.Spinner
 	jsonOutput     bool
+	csvOutput      bool
+	csvSection     string
 	nonInteractive bool
 	profileDetails map[string]interface{}
 }
@@ -123,6 +125,7 @@ func (c *cliState) LoadState() error {
 		}
 	}
 
+	c.csvSection = c.extractValueString("csv_section")
 	c.KeyID = c.extractValueString("api_key")
 	c.Secret = c.extractValueString("api_secret")
 	c.Account = c.extractValueString("account")
@@ -252,6 +255,13 @@ func (c *cliState) StopProgress() {
 func (c *cliState) EnableJSONOutput() {
 	c.Log.Info("switch output to json format")
 	c.jsonOutput = true
+}
+
+func (c *cliState) EnableCsvOutput(section string) {
+	c.Log.Info("switch output to csv format")
+	c.csvOutput = true
+	c.csvSection = section
+	c.nonInteractive = true
 }
 
 // EnableJSONOutput enables the cli to display human readable output

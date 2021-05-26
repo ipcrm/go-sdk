@@ -51,45 +51,19 @@ func (r *RenderCSV) Data() [][]string {
 	return newData
 }
 
-// Used to determine if data payload passed to renderCSV was a previously rendered table
-func (r *RenderCSV) RenderCSVCheck() bool {
-	hasCSVData := false
-	for _, record := range r.data {
-		// Extract each 'row' of what would be a CSV
-		data := strings.NewReader(strings.Join(record, " "))
-
-		// Build a CSV from string, read all records into csvData
-		csvRaw := csv.NewReader(data)
-		csvData, _ := csvRaw.ReadAll()
-
-		// If there are more than 1 entry in this CSV row it was parsed successfully
-		if len(csvData[0]) > 2 {
-			hasCSVData = true
-		}
-	}
-	return hasCSVData
-}
-
 // Used to produce CSV output
 func (r *RenderCSV) Render() string {
 	csvOut := &strings.Builder{}
 	csvRaw := &strings.Builder{}
 	csv := csv.NewWriter(csvOut)
-	hasCSVData := r.RenderCSVCheck()
 
-	if !hasCSVData && len(r.Headers()) > 0 {
+	if len(r.Headers()) > 0 {
 		csv.Write(r.Headers())
 	}
 
 	for _, record := range r.Data() {
-		if hasCSVData {
-			for idx, irecord := range record { csvRaw.WriteString(r.Headers()[idx])
-				csvRaw.WriteString(irecord)
-			}
-		} else {
-			if err := csv.Write(record); err != nil {
-				fmt.Printf("Failed to build csv output, got error: %s", err.Error())
-			}
+		if err := csv.Write(record); err != nil {
+			fmt.Printf("Failed to build csv output, got error: %s", err.Error())
 		}
 	}
 
@@ -100,9 +74,8 @@ func (r *RenderCSV) Render() string {
 
 // Helper to convert table to CSV format using RenderCSV
 func renderTableAsCSV(headers []string, data [][]string) string {
-	r := RenderCSV{
-		headers: headers,
-		data:    data,
-	}
+	r := new(RenderCSV)
+	r.headers = headers
+	r.data = data
 	return r.Render()
 }

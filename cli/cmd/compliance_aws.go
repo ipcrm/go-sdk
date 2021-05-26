@@ -84,6 +84,10 @@ Then navigate to Settings > Integrations > Cloud Accounts.
 		Use:     "get-report <account_id>",
 		Aliases: []string{"get"},
 		PreRunE: func(_ *cobra.Command, _ []string) error {
+			if compCmdState.Csv {
+				cli.EnableCsvOutput(compCmdState.CsvSection)
+			}
+
 			switch compCmdState.Type {
 			case "CIS":
 				compCmdState.Type = fmt.Sprintf("AWS_%s_S3", compCmdState.Type)
@@ -234,6 +238,14 @@ func init() {
 
 	complianceAwsGetReportCmd.Flags().BoolVar(&compCmdState.Pdf, "pdf", false,
 		"download report in PDF format",
+	)
+
+	complianceAwsGetReportCmd.Flags().BoolVar(&compCmdState.Csv, "csv", false,
+		"download report in csv format",
+	)
+
+	complianceAwsGetReportCmd.Flags().StringVar(&compCmdState.CsvSection, "csv_section", "",
+		"csv section to display",
 	)
 
 	// AWS report types: AWS_CIS_S3, NIST_800-53_Rev4, ISO_2700, HIPAA, SOC, or PCI

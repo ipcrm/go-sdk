@@ -89,12 +89,14 @@ key3,value3
 `, "\n")
 
   table := Table{
+		label: "table",
 		headers: []string{"KEY", "VALUE"},
 		data: [][]string{
 				{"key1", "value1"},
 				{"key2", "value2"},
 				{"key3", "value3"},
 	  },
+		csvSection: "table",
   }
 
 	assert.Equal(t,
@@ -103,20 +105,4 @@ key3,value3
 		"table is not being converted to csv properly",
   )
 
-}
-
-func TestCSVRenderCSVCheckTrue(t *testing.T) {
-	csv := RenderCSV{
-		data: [][]string{{"one,two,three", "blue red green"}},
-	}
-
-	assert.True(t, csv.RenderCSVCheck(), "csv data was not successfully detected")
-}
-
-func TestCSVRenderCSVCheckFalse(t *testing.T) {
-	csv := RenderCSV{
-		data: [][]string{{"one two three", "blue red green"}},
-	}
-
-	assert.False(t, csv.RenderCSVCheck(), "csv data was not successfully detected")
 }

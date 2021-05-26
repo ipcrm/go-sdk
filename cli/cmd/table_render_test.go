@@ -171,3 +171,35 @@ func TestCustomTable(t *testing.T) {
 		expectedTable,
 		"tables are not being formatted correctly")
 }
+func TestThisTable(t *testing.T) {
+	expectedTable := strings.TrimPrefix(`
+ID,Recommendation,Status,Severity,Service,Affected,Assessed
+LW_S3_18,...global 'Get' permission.,Compliant,Critical,aws:s3,0,0
+LW_S3_2,"...not grant 'Everyone' WRITE permission [create, overwrite, and delete S3 objects]",Compliant,Critical,aws:s3,0,0
+LW_S3_3,..'Everyone' READ_ACP permission [read bucket ACL],Compliant,Critical,aws:s3,0,0
+`, "\n")
+	data := [][]string{
+		{"LW_S3_18","...global 'Get' permission.","Compliant","Critical","aws:s3","0","0"},
+	  {"LW_S3_2","...not grant 'Everyone' WRITE permission [create, overwrite, and delete S3 objects]","Compliant","Critical","aws:s3","0","0"},
+	  {"LW_S3_3","..'Everyone' READ_ACP permission [read bucket ACL]","Compliant","Critical","aws:s3","0","0"}}
+
+  table	:= NewTable(
+			"recommendations",
+			[]string{"ID", "Recommendation", "Status", "Severity", "Service", "Affected", "Assessed"},
+			data,
+			nil,
+			tableFunc(func(t *tablewriter.Table) {
+				t.SetBorder(false)
+				t.SetRowLine(true)
+				t.SetColumnSeparator(" ")
+			}),
+  )
+
+	table.renderAsCsv = true
+	table.csvSection = "recommendations"
+	assert.Equal(t,
+	  table.Render(),
+		expectedTable,
+	)
+}
+

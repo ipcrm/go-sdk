@@ -39,6 +39,12 @@ var (
 		// download report in PDF format
 		Pdf bool
 
+		// download report in CSV format
+		Csv bool
+
+		// set the report sections for CSV output
+		CsvSection string
+
 		// display extended details about a compliance report
 		Details bool
 
@@ -212,6 +218,7 @@ func complianceReportRecommendationsTable(recommendations []api.ComplianceRecomm
 
 func buildComplianceReportTable(detailsTable, summaryTable, recommendationsTable [][]string, filteredOutput string) string {
 	mainReport := &strings.Builder{}
+
 	mainReport.WriteString(
 		renderCustomTable(
 			"overview",
@@ -266,15 +273,20 @@ func buildComplianceReportTable(detailsTable, summaryTable, recommendationsTable
 		if filteredOutput != "" {
 			mainReport.WriteString(filteredOutput)
 		}
-		mainReport.WriteString("\n")
-		mainReport.WriteString(
-			"Try using '--pdf' to download the report in PDF format.",
-		)
-		mainReport.WriteString("\n")
+
+		if !cli.nonInteractive {
+		  mainReport.WriteString("\n")
+			mainReport.WriteString(
+					"Try using '--pdf' to download the report in PDF format.",
+			)
+	  	mainReport.WriteString("\n")
+		}
 	} else {
-		mainReport.WriteString(
-			"Try using '--details' to increase details shown about the compliance report.\n",
-		)
+		if !cli.nonInteractive {
+			mainReport.WriteString(
+				"Try using '--details' to increase details shown about the compliance report.\n",
+			)
+		}
 	}
 	return mainReport.String()
 }
