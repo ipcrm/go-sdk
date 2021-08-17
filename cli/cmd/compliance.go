@@ -22,6 +22,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
@@ -204,6 +205,90 @@ func complianceReportRecommendationsTable(recommendations []api.ComplianceRecomm
 			fmt.Sprint(recommend.ResourceCount),
 			fmt.Sprint(recommend.AssessedResourceCount),
 		})
+	}
+
+	sort.Slice(out, func(i, j int) bool {
+		return severityOrder(out[i][3]) < severityOrder(out[j][3])
+	})
+
+	return out
+}
+
+func complianceCSVReportAddRecord(
+	tenantAlias string,
+	accountAlias string,
+	reportType string,
+	reportTime time.Time,
+	recommendation api.ComplianceRecommendation,
+	resource string,
+	region string,
+	reasons []string,
+	suppressed bool,
+) []string {
+	record := []string{reportType, reportTime.Format(time.RFC3339)}
+	status := recommendation.Status
+	if suppressed {
+		status = "Suppressed"
+	}
+
+	if tenantAlias != "" {
+		record = append(record, tenantAlias)
+	}
+
+	record = append(record, []string{
+		accountAlias,
+		recommendation.Category,
+		recommendation.RecID,
+		recommendation.Title,
+		status,
+		recommendation.SeverityString(),
+		resource,
+		region,
+		strings.Join(reasons, ","),
+	}...)
+
+	return record
+}
+
+func complianceCSVReportRecommendationsTable(
+	tenantAlias string,
+	accountAlias string,
+	reportType string,
+	reportTime time.Time,
+	recommendations []api.ComplianceRecommendation) [][]string {
+	out := [][]string{}
+
+	sort.Slice(recommendations, func(i, j int) bool {
+		return recommendations[i].Category < recommendations[j].Category
+	})
+
+	for _, recommendation := range recommendations {
+		for _, suppression := range recommendation.Suppressions {
+			out = append(out,
+				complianceCSVReportAddRecord(
+					tenantAlias,
+					accountAlias,
+					reportType,
+					reportTime,
+					recommendation,
+					suppression,
+					"",
+					nil,
+					true))
+		}
+		for _, violation := range recommendation.Violations {
+			out = append(out,
+				complianceCSVReportAddRecord(
+					tenantAlias,
+					accountAlias,
+					reportType,
+					reportTime,
+					recommendation,
+					violation.Resource,
+					violation.Region,
+					violation.Reasons,
+					false))
+		}
 	}
 
 	sort.Slice(out, func(i, j int) bool {

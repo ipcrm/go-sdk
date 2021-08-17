@@ -224,14 +224,31 @@ To run an ad-hoc compliance assessment use the command:
 				return cli.OutputJSON(report)
 			}
 
-			recommendations := complianceReportRecommendationsTable(report.Recommendations)
 			if cli.CSVOutput() {
+				subscriptionName := report.SubscriptionID
+				if report.SubscriptionName != "" {
+					subscriptionName = fmt.Sprintf("%s(%s)", report.SubscriptionName, report.SubscriptionID)
+				}
+
+				tenantName := report.TenantID
+				if report.TenantName != "" {
+					tenantName = fmt.Sprintf("%s(%s)", report.TenantName, report.TenantID)
+				}
+
+				recommendations := complianceCSVReportRecommendationsTable(
+					tenantName,
+					subscriptionName,
+					report.ReportType,
+					report.ReportTime,
+					report.Recommendations)
+
 				return cli.OutputCSV(
-					[]string{"ID", "Recommendation", "Status", "Severity", "Service", "Affected", "Assessed"},
+					[]string{"Report_Type", "Report_Time", "Tenant", "Subscription", "Section", "ID", "Recommendation", "Status", "Severity", "Resource", "Region", "Reason"},
 					recommendations,
 				)
 			}
 
+			recommendations := complianceReportRecommendationsTable(report.Recommendations)
 			cli.OutputHuman("\n")
 			cli.OutputHuman(
 				buildComplianceReportTable(
