@@ -183,16 +183,15 @@ To run an ad-hoc compliance assessment of an AWS account:
 			}
 
 			if cli.CSVOutput() {
-				accountName := report.AccountID
-				if report.AccountAlias != "" {
-					accountName = fmt.Sprintf("%s(%s)", report.AccountAlias, report.AccountID)
-				}
 				recommendations := complianceCSVReportRecommendationsTable(
-					"",
-					accountName,
-					report.ReportType,
-					report.ReportTime,
-					report.Recommendations)
+					&complianceCSVReportDetails{
+						AccountName:     report.AccountID,
+						AccountID:       report.AccountID,
+						ReportType:      report.ReportType,
+						ReportTime:      report.ReportTime,
+						Recommendations: report.Recommendations,
+					},
+				)
 
 				return cli.OutputCSV(
 					[]string{"Report_Type", "Report_Time", "Account", "Section", "ID", "Recommendation", "Status", "Severity", "Resource", "Region", "Reason"},

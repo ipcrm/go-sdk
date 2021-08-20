@@ -214,80 +214,89 @@ func complianceReportRecommendationsTable(recommendations []api.ComplianceRecomm
 	return out
 }
 
-func complianceCSVReportAddRecord(
-	tenantAlias string,
-	accountAlias string,
-	reportType string,
-	reportTime time.Time,
-	recommendation api.ComplianceRecommendation,
-	resource string,
-	region string,
-	reasons []string,
-	suppressed bool,
-) []string {
-	record := []string{reportType, reportTime.Format(time.RFC3339)}
-	status := recommendation.Status
-	if suppressed {
-		status = "Suppressed"
-	}
+type complianceCSVReportDetails struct {
+	// For clouds with tenant models, supply tenant ID
+	TenantID string
 
-	if tenantAlias != "" {
-		record = append(record, tenantAlias)
-	}
+	// For clouds with tenant models, supply tenant name/alias
+	TenantName string
 
-	record = append(record, []string{
-		accountAlias,
-		recommendation.Category,
-		recommendation.RecID,
-		recommendation.Title,
-		status,
-		recommendation.SeverityString(),
-		resource,
-		region,
-		strings.Join(reasons, ","),
-	}...)
+	// Supply the account id for the cloud enviornment
+	AccountID string
 
-	return record
+	// Supply the account name/alias for the cloud enviornment, if available
+	AccountName string
+
+	// The type of report being rendered
+	ReportType string
+
+	// The time of the report execution
+	ReportTime time.Time
+
+	// Recommendations
+	Recommendations []api.ComplianceRecommendation
 }
 
-func complianceCSVReportRecommendationsTable(
-	tenantAlias string,
-	accountAlias string,
-	reportType string,
-	reportTime time.Time,
-	recommendations []api.ComplianceRecommendation) [][]string {
-	out := [][]string{}
+func (c complianceCSVReportDetails) GetAccountDetails() []string {
+	accountAlias := c.AccountID
+	if c.AccountName != "" {
+		accountAlias = fmt.Sprintf("%s(%s)", c.AccountName, c.AccountID)
+	}
 
-	sort.Slice(recommendations, func(i, j int) bool {
-		return recommendations[i].Category < recommendations[j].Category
+	tenantAlias := c.TenantID
+	if c.TenantName != "" {
+		tenantAlias = fmt.Sprintf("%s(%s)", c.TenantName, c.TenantID)
+	}
+	out := []string{}
+	if tenantAlias != "" {
+		out = append(out, tenantAlias)
+	}
+
+	if accountAlias != "" {
+		out = append(out, accountAlias)
+	}
+	return out
+}
+
+func (c complianceCSVReportDetails) GetReportMetaData() []string {
+	return append([]string{c.ReportType, c.ReportTime.Format(time.RFC3339)}, c.GetAccountDetails()...)
+}
+
+func (c complianceCSVReportDetails) SortRecommendations() {
+	sort.Slice(c.Recommendations, func(i, j int) bool {
+		return c.Recommendations[i].Category < c.Recommendations[j].Category
 	})
 
-	for _, recommendation := range recommendations {
+}
+
+func complianceCSVReportRecommendationsTable(details *complianceCSVReportDetails) [][]string {
+	details.SortRecommendations()
+	out := [][]string{}
+
+	for _, recommendation := range details.Recommendations {
 		for _, suppression := range recommendation.Suppressions {
 			out = append(out,
-				complianceCSVReportAddRecord(
-					tenantAlias,
-					accountAlias,
-					reportType,
-					reportTime,
-					recommendation,
+				append(details.GetReportMetaData(),
+					recommendation.Category,
+					recommendation.RecID,
+					recommendation.Title,
+					"Suppressed",
+					recommendation.SeverityString(),
 					suppression,
 					"",
-					nil,
-					true))
+					""))
 		}
 		for _, violation := range recommendation.Violations {
 			out = append(out,
-				complianceCSVReportAddRecord(
-					tenantAlias,
-					accountAlias,
-					reportType,
-					reportTime,
-					recommendation,
+				append(details.GetReportMetaData(),
+					recommendation.Category,
+					recommendation.RecID,
+					recommendation.Title,
+					recommendation.Status,
+					recommendation.SeverityString(),
 					violation.Resource,
 					violation.Region,
-					violation.Reasons,
-					false))
+					strings.Join(violation.Reasons, ",")))
 		}
 	}
 
