@@ -185,3 +185,19 @@ func CreateRequiredProviders(providers []*HclRequiredProvider) *hclwrite.Block {
 
 	return block
 }
+
+// helper to create a hcl.Traversal in the order of supplied []string
+//
+// e.g. []string{"a", "b", "c"} as input results in traversal having value a.b.c
+func CreateSimpleTraversal(input []string) hcl.Traversal {
+	traversers := []hcl.Traverser{}
+
+	for i, val := range input {
+		if i == 0 {
+			traversers = append(traversers, hcl.TraverseRoot{Name: val})
+		} else {
+			traversers = append(traversers, hcl.TraverseAttr{Name: val})
+		}
+	}
+	return traversers
+}

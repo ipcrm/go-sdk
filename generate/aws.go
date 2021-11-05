@@ -91,6 +91,14 @@ func (s *GenerateAwsTfConfiguration) CreateLaceworkProviderBlock() {
 
 func (s *GenerateAwsTfConfiguration) CreateModuleImports() {
 	blocks := []*hclwrite.Block{}
+	if s.Args.ConfigureConfig {
+		blocks = append(blocks,
+			CreateModule(&HclModule{
+				Name:    "aws_config",
+				Source:  "lacework/config/aws",
+				Version: "~> 0.1",
+			}))
+	}
 	if s.Args.ConfigureCloudtrail {
 		data := &HclModule{
 			Name:       "main_cloudtrail",
@@ -101,16 +109,13 @@ func (s *GenerateAwsTfConfiguration) CreateModuleImports() {
 		if s.Args.ForceDestroyS3Bucket {
 			data.Attributes["bucket_force_destroy"] = true
 		}
+		if s.Args.ExistingIamRoleArn == "" {
+			data.Attributes["use_existing_iam_role"] = true
+			data.Attributes["iam_role_name"] = CreateSimpleTraversal([]string{"module", "aws_config", "iam_role_name"})
+			data.Attributes["iam_role_arn"] = CreateSimpleTraversal([]string{"module", "aws_config", "iam_role_arn"})
+			data.Attributes["iam_role_external_id"] = CreateSimpleTraversal([]string{"module", "aws_config", "external_id"})
+		}
 		blocks = append(blocks, CreateModule(data))
 	}
-	if s.Args.ConfigureConfig {
-		blocks = append(blocks,
-			CreateModule(&HclModule{
-				Name:    "aws_config_main",
-				Source:  "lacework/config/aws",
-				Version: "~> 0.1",
-			}))
-	}
-
 	s.Blocks = append(s.Blocks, blocks...)
 }

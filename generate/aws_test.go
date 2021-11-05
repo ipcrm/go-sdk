@@ -29,7 +29,7 @@ func TestGenerationConfigAndCt(t *testing.T) {
 		ConfigureCloudtrail: true,
 	})
 	assert.NotNil(t, hcl)
-	assert.Equal(t, requiredProviders+moduleImportCt+moduleImportConfig, hcl)
+	assert.Equal(t, requiredProviders+moduleImportConfig+moduleImportCt, hcl)
 }
 
 func TestGenerationWithProviderRegion(t *testing.T) {
@@ -58,13 +58,17 @@ var awsProvider = `provider "aws" {
 `
 
 var moduleImportCt = `module "main_cloudtrail" {
-  source  = "lacework/cloudtrail/aws"
-  version = "~> 0.1"
+  iam_role_arn          = module.aws_config.iam_role_arn
+  iam_role_external_id  = module.aws_config.external_id
+  iam_role_name         = module.aws_config.iam_role_name
+  source                = "lacework/cloudtrail/aws"
+  use_existing_iam_role = true
+  version               = "~> 0.1"
 }
 
 `
 
-var moduleImportConfig = `module "aws_config_main" {
+var moduleImportConfig = `module "aws_config" {
   source  = "lacework/config/aws"
   version = "~> 0.1"
 }
