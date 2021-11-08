@@ -1,6 +1,10 @@
 package cmd
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
+
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/lacework/go-sdk/generate"
 	"github.com/pkg/errors"
@@ -26,12 +30,12 @@ var (
 				return errors.New("interactive mode is disabled")
 			}
 
-			response, err := promptAwsGenerate()
+			location, err := promptAwsGenerate()
 			if err != nil {
 				return errors.Wrap(err, "unable to create iac code")
 			}
 
-			cli.OutputHuman(response)
+			cli.OutputHuman(fmt.Sprintf("Terraform Code generated at %s!\n", location))
 			return nil
 		},
 	}
@@ -71,11 +75,11 @@ func promptAwsGenerate() (string, error) {
 		},
 		{
 			Name:   "awsRegion",
-			Prompt: &survey.Input{Message: "Specify the AWS region Cloudtrail, SNS, and S3 resources should use"},
+			Prompt: &survey.Input{Message: "(Optional) Specify the AWS region Cloudtrail, SNS, and S3 resources should use:"},
 		},
 		{
 			Name:   "existingBucketArn",
-			Prompt: &survey.Input{Message: "Specify an existing bucket ARN used for Cloudtrail logs"},
+			Prompt: &survey.Input{Message: "(Optional) Specify an existing bucket ARN used for Cloudtrail logs:"},
 		},
 		{
 			Name:   "useExistingIamRole",
@@ -232,6 +236,31 @@ func promptAwsGenerate() (string, error) {
 		Profiles:                  accountDetails,
 	})
 
+	// TODO Improve all this && Make output dir configurable
+	// Write out
+	dirname, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+
+	directory := filepath.FromSlash(fmt.Sprintf("%s/%s", dirname, "lacework"))
+	if _, err := os.Stat(directory); os.IsNotExist(err) {
+		err = os.Mkdir(directory, 0700)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	location := fmt.Sprintf("%s/%s/main.tf", dirname, "lacework")
+	err = os.WriteFile(
+		filepath.FromSlash(location),
+		[]byte(hcl),
+		0700,
+	)
+	if err != nil {
+		return "", err
+	}
+
 	cli.StopProgress()
-	return hcl, err
+	return location, err
 }
