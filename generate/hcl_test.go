@@ -78,7 +78,7 @@ func TestModuleWithProviderBlock(t *testing.T) {
 	assert.Equal(t, "module", data.Type())
 	assert.Equal(t, "foo", data.Labels()[0])
 	assert.Equal(t,
-		"providers= {\nfoo.src= test.abc\nfoo.dst= abc.test\n}\n",
+		"providers= {\nfoo.dst= abc.test\nfoo.src= test.abc\n}\n",
 		string(data.Body().GetAttribute("providers").BuildTokens(nil).Bytes()))
 }
 

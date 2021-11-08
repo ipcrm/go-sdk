@@ -65,12 +65,34 @@ func convertTypeToCty(value interface{}) cty.Value {
 func HclCreateGenericBlock(hcltype string, labels []string, attr map[string]interface{}) *hclwrite.Block {
 	block := hclwrite.NewBlock(hcltype, labels)
 
+	// Source and version require some special handling, should go at the top of a block declaration
+	sourceFound := false
+	versionFound := false
+
 	// We need/want to guarentee the ordering of the attributes, do that here
 	var keys []string
 	for k := range attr {
-		keys = append(keys, k)
+		switch k {
+		case "source":
+			sourceFound = true
+		case "version":
+			versionFound = true
+		default:
+			keys = append(keys, k)
+		}
 	}
 	sort.Strings(keys)
+
+	if sourceFound || versionFound {
+		var newKeys []string
+		if sourceFound {
+			newKeys = append(newKeys, "source")
+		}
+		if versionFound {
+			newKeys = append(newKeys, "version")
+		}
+		keys = append(newKeys, keys...)
+	}
 
 	// Write block data
 	// TODO lists
@@ -91,22 +113,30 @@ func HclCreateGenericBlock(hcltype string, labels []string, attr map[string]inte
 			panic("Unknown type")
 		}
 	}
+
 	return block
 }
 
 // Create tokens for map of traversals.  Used as a workaround for writing complex types where the built-in
 // SetAttributeValue won't work
 func createMapTraversalTokens(input map[string]string) hclwrite.Tokens {
+	// Sort input
+	keys := []string{}
+	for k := range input {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
 	tokens := hclwrite.Tokens{
 		{Type: hclsyntax.TokenOBrace, Bytes: []byte("{"), SpacesBefore: 1},
 		{Type: hclsyntax.TokenNewline, Bytes: []byte("\n")},
 	}
 
-	for k, v := range input {
+	for _, k := range keys {
 		tokens = append(tokens, []*hclwrite.Token{
 			{Type: hclsyntax.TokenStringLit, Bytes: []byte(k)},
 			{Type: hclsyntax.TokenEqual, Bytes: []byte("=")},
-			{Type: hclsyntax.TokenStringLit, Bytes: []byte(v), SpacesBefore: 1},
+			{Type: hclsyntax.TokenStringLit, Bytes: []byte(input[k]), SpacesBefore: 1},
 			{Type: hclsyntax.TokenNewline, Bytes: []byte("\n")},
 		}...)
 	}

@@ -64,14 +64,100 @@ func promptAwsGenerate() (string, error) {
 		ConfigureConfig     bool `survey:"configureConfig"`
 	}{}
 
+	ctQuestions := []*survey.Question{
+		{
+			Name:   "awsRegion",
+			Prompt: &survey.Input{Message: "Specify the AWS region Cloudtrail, SNS, and S3 resources should use"},
+		},
+		{
+			Name:   "existingBucketArn",
+			Prompt: &survey.Input{Message: "Specify an existing bucket ARN used for Cloudtrail logs"},
+		},
+		{
+			Name:   "useConsolidatedCloudtrail",
+			Prompt: &survey.Confirm{Message: "Use consolidated Cloudtrail?"},
+		},
+		{
+			Name:   "useExistingIamRole",
+			Prompt: &survey.Confirm{Message: "Use an existing IAM Role?"},
+		},
+	}
+
+	ctAnswers := struct {
+		AwsRegion                 string `survey:"awsRegion"`
+		ExistingBucketArn         string `survey:"existingBucketArn"`
+		ExistingSnsTopicName      string `survey:"existingSnsTopicName"`
+		UseConsolidatedCloudtrail bool   `survey:"useConsolidatedCloudtrail"`
+		UseExistingIamRole        bool   `survey:"useExistingIamRole"`
+	}{}
+
 	err := survey.Ask(questions, &answers,
 		survey.WithIcons(promptIconsFunc),
 	)
+	if err != nil {
+		return "", err
+	}
+
+	if answers.ConfigureCloudtrail {
+		err := survey.Ask(ctQuestions, &ctAnswers,
+			survey.WithIcons(promptIconsFunc),
+		)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	ctExistingIamAnswers := struct {
+		ExistingIamRoleName       string `survey:"existingIamRoleName"`
+		ExistingIamRoleArn        string `survey:"existingIamRoleArn"`
+		ExistingIamRoleExternalId string `survey:"existingIamRoleExternalId"`
+	}{}
+
+	ctExistingIamQuestions := []*survey.Question{
+		{
+			Name:     "existingIamRoleName",
+			Prompt:   &survey.Input{Message: "Specify an existing IAM role name for Cloudtrail access"},
+			Validate: survey.Required,
+		},
+		{
+			Name:     "existingIamRoleArn",
+			Prompt:   &survey.Input{Message: "Specify an existing IAM role ARN for Cloudtrail access"},
+			Validate: survey.Required,
+		},
+		{
+			Name:     "existingIamRoleExternalId",
+			Prompt:   &survey.Input{Message: "Specify the external ID to be used with the existing IAM role"},
+			Validate: survey.Required,
+		},
+	}
+
+	if ctAnswers.UseExistingIamRole {
+		err := survey.Ask(ctExistingIamQuestions, &ctExistingIamAnswers,
+			survey.WithIcons(promptIconsFunc),
+		)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	var forceDestroyS3Bucket bool
+	if ctAnswers.ExistingBucketArn != "" {
+		survey.AskOne(&survey.Confirm{Message: "Should the new S3 bucket have force destroy enabled?"}, forceDestroyS3Bucket)
+	}
 
 	cli.StartProgress(" Generating Terraform Code...")
 	hcl := generate.NewAwsTFConfiguration(&generate.GenerateAwsTfConfigurationArgs{
-		ConfigureCloudtrail: answers.ConfigureCloudtrail,
-		ConfigureConfig:     answers.ConfigureConfig,
+		ConfigureCloudtrail:       answers.ConfigureCloudtrail,
+		ConfigureConfig:           answers.ConfigureConfig,
+		AwsRegion:                 ctAnswers.AwsRegion,
+		ExistingIamRoleArn:        ctExistingIamAnswers.ExistingIamRoleArn,
+		ExistingIamRoleName:       ctExistingIamAnswers.ExistingIamRoleName,
+		ExistingIamRoleExternalId: ctExistingIamAnswers.ExistingIamRoleExternalId,
+		UseExistingIamRole:        ctAnswers.UseExistingIamRole,
+		ExistingBucketArn:         ctAnswers.ExistingBucketArn,
+		ExistingSnsTopicArn:       ctAnswers.ExistingSnsTopicName,
+		UseConsolidatedCloudtrail: ctAnswers.UseConsolidatedCloudtrail,
+		ForceDestroyS3Bucket:      forceDestroyS3Bucket,
 	})
 
 	cli.StopProgress()

@@ -15,16 +15,28 @@ type GenerateAwsTfConfigurationArgs struct {
 
 	// Supply an AWS region for where to find the cloudtrail resources
 	// TODO This could be different (s3 one place, sns another)
-	CloudTrailRegion string
+	AwsRegion string
 
-	// Existing S3 Bucket ARN
+	// Use an existing trail?
+	UseExistingCloudtrail bool
+
+	// Existing S3 Bucket ARN (Required when using existing cloudtrail)
 	ExistingBucketArn string
+
+	// Use existing IAM role?
+	UseExistingIamRole bool
 
 	// Existing IAM Role ARN
 	ExistingIamRoleArn string
 
+	// Existing IAM Role Name
+	ExistingIamRoleName string
+
+	// Existing IAM Role External Id
+	ExistingIamRoleExternalId string
+
 	// Existing SNS Topic
-	ExistingSnsTopicName string
+	ExistingSnsTopicArn string
 
 	// Consolidated Trail
 	UseConsolidatedCloudtrail bool
@@ -53,7 +65,8 @@ func NewAwsTFConfiguration(args *GenerateAwsTfConfigurationArgs) string {
 	s.AddRequiredProviders()
 	s.CreateAwsProviderBlock()
 	s.CreateLaceworkProviderBlock()
-	s.CreateModuleImports()
+	s.CreateConfigBlock()
+	s.CreateCloudtrailBlock()
 	return CreateHclStringOutput(s.Blocks)
 }
 
@@ -68,11 +81,11 @@ func (s *GenerateAwsTfConfiguration) AddRequiredProviders() {
 }
 
 func (s *GenerateAwsTfConfiguration) CreateAwsProviderBlock() {
-	if s.Args.CloudTrailRegion != "" {
+	if s.Args.AwsRegion != "" {
 		s.Blocks = append(s.Blocks, CreateProvider(&HclProvider{
 			Name: "aws",
 			Attributes: map[string]interface{}{
-				"region": s.Args.CloudTrailRegion,
+				"region": s.Args.AwsRegion,
 			},
 		}))
 	}
@@ -89,16 +102,19 @@ func (s *GenerateAwsTfConfiguration) CreateLaceworkProviderBlock() {
 	}
 }
 
-func (s *GenerateAwsTfConfiguration) CreateModuleImports() {
-	blocks := []*hclwrite.Block{}
+func (s *GenerateAwsTfConfiguration) CreateConfigBlock() {
 	if s.Args.ConfigureConfig {
-		blocks = append(blocks,
+		s.Blocks = append(s.Blocks,
 			CreateModule(&HclModule{
 				Name:    "aws_config",
 				Source:  "lacework/config/aws",
 				Version: "~> 0.1",
-			}))
+			}),
+		)
 	}
+}
+
+func (s *GenerateAwsTfConfiguration) CreateCloudtrailBlock() {
 	if s.Args.ConfigureCloudtrail {
 		data := &HclModule{
 			Name:       "main_cloudtrail",
@@ -106,16 +122,37 @@ func (s *GenerateAwsTfConfiguration) CreateModuleImports() {
 			Version:    "~> 0.1",
 			Attributes: map[string]interface{}{},
 		}
-		if s.Args.ForceDestroyS3Bucket {
+		if s.Args.ForceDestroyS3Bucket && s.Args.UseExistingCloudtrail == false {
 			data.Attributes["bucket_force_destroy"] = true
 		}
-		if s.Args.ExistingIamRoleArn == "" {
+
+		if s.Args.UseConsolidatedCloudtrail {
+			data.Attributes["consolidated_trail"] = true
+		}
+
+		if s.Args.ExistingSnsTopicArn != "" {
+			data.Attributes["use_existing_sns_topic"] = true
+			data.Attributes["sns_topic_arn"] = s.Args.ExistingSnsTopicArn
+		}
+
+		if s.Args.UseExistingIamRole != true && s.Args.ConfigureConfig {
 			data.Attributes["use_existing_iam_role"] = true
 			data.Attributes["iam_role_name"] = CreateSimpleTraversal([]string{"module", "aws_config", "iam_role_name"})
 			data.Attributes["iam_role_arn"] = CreateSimpleTraversal([]string{"module", "aws_config", "iam_role_arn"})
 			data.Attributes["iam_role_external_id"] = CreateSimpleTraversal([]string{"module", "aws_config", "external_id"})
 		}
-		blocks = append(blocks, CreateModule(data))
+
+		if s.Args.UseExistingIamRole {
+			data.Attributes["use_existing_iam_role"] = true
+			data.Attributes["iam_role_name"] = s.Args.ExistingIamRoleName
+			data.Attributes["iam_role_arn"] = s.Args.ExistingIamRoleArn
+			data.Attributes["iam_role_external_id"] = s.Args.ExistingIamRoleExternalId
+		}
+
+		if s.Args.UseExistingCloudtrail {
+			data.Attributes["use_existing_cloudtrail"] = true
+			data.Attributes["bucket_arn"] = s.Args.ExistingBucketArn
+		}
+		s.Blocks = append(s.Blocks, CreateModule(data))
 	}
-	s.Blocks = append(s.Blocks, blocks...)
 }
