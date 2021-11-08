@@ -1,6 +1,8 @@
 package generate
 
 import (
+	"fmt"
+
 	"github.com/hashicorp/hcl/v2/hclwrite"
 )
 
@@ -16,6 +18,9 @@ type GenerateAwsTfConfigurationArgs struct {
 	// Supply an AWS region for where to find the cloudtrail resources
 	// TODO This could be different (s3 one place, sns another)
 	AwsRegion string
+
+	// Supply an AWS Profile name for the main account, only asked if configuring multiple
+	AwsProfile string
 
 	// Use an existing trail?
 	UseExistingCloudtrail bool
@@ -46,7 +51,10 @@ type GenerateAwsTfConfigurationArgs struct {
 
 	// For AWS Subaccounts in consolidated CT setups
 	// TODO what about many ct/config integrations together?
-	Profiles []string
+	Profiles map[string]string
+
+	// For aws subaccounts, a quick value to check if we are configuring multiple
+	ConfigureMoreAccounts bool
 
 	// Optional. Lacework Profile to use
 	LaceworkProfile string
@@ -81,13 +89,33 @@ func (s *GenerateAwsTfConfiguration) AddRequiredProviders() {
 }
 
 func (s *GenerateAwsTfConfiguration) CreateAwsProviderBlock() {
-	if s.Args.AwsRegion != "" {
+	if s.Args.AwsRegion != "" || s.Args.ConfigureMoreAccounts {
+		attrs := map[string]interface{}{}
+		if s.Args.AwsRegion != "" {
+			attrs["region"] = s.Args.AwsRegion
+		}
+
+		if s.Args.ConfigureMoreAccounts {
+			attrs["alias"] = "main"
+			attrs["profile"] = s.Args.AwsProfile
+		}
 		s.Blocks = append(s.Blocks, CreateProvider(&HclProvider{
-			Name: "aws",
-			Attributes: map[string]interface{}{
-				"region": s.Args.AwsRegion,
-			},
+			Name:       "aws",
+			Attributes: attrs,
 		}))
+	}
+
+	if s.Args.ConfigureMoreAccounts {
+		for profile, region := range s.Args.Profiles {
+			s.Blocks = append(s.Blocks, CreateProvider(&HclProvider{
+				Name: "aws",
+				Attributes: map[string]interface{}{
+					"alias":   profile,
+					"profile": profile,
+					"region":  region,
+				},
+			}))
+		}
 	}
 }
 
@@ -103,14 +131,33 @@ func (s *GenerateAwsTfConfiguration) CreateLaceworkProviderBlock() {
 }
 
 func (s *GenerateAwsTfConfiguration) CreateConfigBlock() {
+	source := "lacework/config/aws"
+	version := "~> 0.1"
+
 	if s.Args.ConfigureConfig {
-		s.Blocks = append(s.Blocks,
-			CreateModule(&HclModule{
-				Name:    "aws_config",
-				Source:  "lacework/config/aws",
-				Version: "~> 0.1",
-			}),
-		)
+		block := &HclModule{
+			Name:    "aws_config",
+			Source:  source,
+			Version: version,
+		}
+
+		if s.Args.ConfigureMoreAccounts {
+			block.ProviderDetails = map[string]string{
+				"aws": "aws.main",
+			}
+		}
+		s.Blocks = append(s.Blocks, CreateModule(block))
+
+		for profile := range s.Args.Profiles {
+			s.Blocks = append(s.Blocks, CreateModule(&HclModule{
+				Name:    fmt.Sprintf("aws_config_%s", profile),
+				Source:  source,
+				Version: version,
+				ProviderDetails: map[string]string{
+					"aws": fmt.Sprintf("aws.%s", profile),
+				},
+			}))
+		}
 	}
 }
 
@@ -152,6 +199,12 @@ func (s *GenerateAwsTfConfiguration) CreateCloudtrailBlock() {
 		if s.Args.UseExistingCloudtrail {
 			data.Attributes["use_existing_cloudtrail"] = true
 			data.Attributes["bucket_arn"] = s.Args.ExistingBucketArn
+		}
+
+		if s.Args.ConfigureMoreAccounts {
+			data.ProviderDetails = map[string]string{
+				"aws": "aws.main",
+			}
 		}
 		s.Blocks = append(s.Blocks, CreateModule(data))
 	}

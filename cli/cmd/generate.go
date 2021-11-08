@@ -144,34 +144,72 @@ func promptAwsGenerate() (string, error) {
 	// If a new bucket is to be created; should the force destroy bit be set?
 	var forceDestroyS3Bucket bool
 	if ctAnswers.ExistingBucketArn != "" {
-		survey.AskOne(
+		err := survey.AskOne(
 			&survey.Confirm{Message: "Should the new S3 bucket have force destroy enabled?"},
 			&forceDestroyS3Bucket)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	// Let's collect up the other AWS accounts they would like to support
 	collectMoreAccounts := false
 	if ctAnswers.UseConsolidatedCloudtrail { // TODO This isn't the only time there might be sub-accounts
-		survey.AskOne(
+		err := survey.AskOne(
 			&survey.Confirm{Message: "Are there additional AWS accounts to intergrate for Configuration?"},
 			&collectMoreAccounts)
+		if err != nil {
+			return "", err
+		}
 	}
 
-	askAgain := true
-	var profiles []string
-	if collectMoreAccounts {
-		for askAgain {
-			var value string
-			survey.AskOne(
-				&survey.Input{Message: "Supply the profile name for the AWS account"},
-				&value,
-				survey.WithValidator(survey.Required))
-			profiles = append(profiles, value)
+	type accountAnswers struct {
+		AccountProfileName   string `survey:"accountProfileName"`
+		AccountProfileRegion string `survey:"accountProfileRegion"`
+	}
+	accountQuestions := []*survey.Question{
+		{
+			Name:     "accountProfileName",
+			Prompt:   &survey.Input{Message: "Supply the profile name for the AWS account"},
+			Validate: survey.Required,
+		},
+		{
+			Name:     "accountProfileRegion",
+			Prompt:   &survey.Input{Message: "What region should be used for this account?"},
+			Validate: survey.Required,
+		},
+	}
 
-			survey.AskOne(
+	// For each added account, collect it's profile name and the region that should be used
+	accountDetails := map[string]string{}
+	var mainAccountProfile string
+	askAgain := true
+	if collectMoreAccounts {
+		// Determine the profile for the main account
+		err := survey.AskOne(
+			&survey.Input{Message: "What is the AWS profile name for the main account?"},
+			&mainAccountProfile,
+			survey.WithValidator(survey.Required),
+		)
+		if err != nil {
+			return "", err
+		}
+
+		answers := accountAnswers{}
+		for askAgain {
+			err := survey.Ask(accountQuestions, &answers)
+			if err != nil {
+				return "", err
+			}
+			accountDetails[answers.AccountProfileName] = answers.AccountProfileRegion
+
+			err = survey.AskOne(
 				&survey.Confirm{Message: "Add another AWS account?"},
 				&askAgain,
 			)
+			if err != nil {
+				return "", err
+			}
 		}
 	}
 
@@ -181,6 +219,7 @@ func promptAwsGenerate() (string, error) {
 		ConfigureCloudtrail:       answers.ConfigureCloudtrail,
 		ConfigureConfig:           answers.ConfigureConfig,
 		AwsRegion:                 ctAnswers.AwsRegion,
+		AwsProfile:                mainAccountProfile,
 		ExistingIamRoleArn:        ctExistingIamAnswers.ExistingIamRoleArn,
 		ExistingIamRoleName:       ctExistingIamAnswers.ExistingIamRoleName,
 		ExistingIamRoleExternalId: ctExistingIamAnswers.ExistingIamRoleExternalId,
@@ -189,7 +228,8 @@ func promptAwsGenerate() (string, error) {
 		ExistingSnsTopicArn:       ctAnswers.ExistingSnsTopicName,
 		UseConsolidatedCloudtrail: ctAnswers.UseConsolidatedCloudtrail,
 		ForceDestroyS3Bucket:      forceDestroyS3Bucket,
-		Profiles:                  profiles,
+		ConfigureMoreAccounts:     collectMoreAccounts,
+		Profiles:                  accountDetails,
 	})
 
 	cli.StopProgress()

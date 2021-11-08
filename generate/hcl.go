@@ -136,7 +136,7 @@ func createMapTraversalTokens(input map[string]string) hclwrite.Tokens {
 		tokens = append(tokens, []*hclwrite.Token{
 			{Type: hclsyntax.TokenStringLit, Bytes: []byte(k)},
 			{Type: hclsyntax.TokenEqual, Bytes: []byte("=")},
-			{Type: hclsyntax.TokenStringLit, Bytes: []byte(input[k]), SpacesBefore: 1},
+			{Type: hclsyntax.TokenStringLit, Bytes: []byte(" " + input[k]), SpacesBefore: 1},
 			{Type: hclsyntax.TokenNewline, Bytes: []byte("\n")},
 		}...)
 	}
@@ -167,6 +167,7 @@ func CreateModule(module *HclModule) *hclwrite.Block {
 		module.Attributes,
 	)
 	if module.ProviderDetails != nil {
+		block.Body().AppendNewline()
 		block.Body().SetAttributeRaw("providers", createMapTraversalTokens(module.ProviderDetails))
 	}
 
