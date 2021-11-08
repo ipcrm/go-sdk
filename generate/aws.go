@@ -135,6 +135,7 @@ func (s *GenerateAwsTfConfiguration) CreateConfigBlock() {
 	version := "~> 0.1"
 
 	if s.Args.ConfigureConfig {
+		// Add main account
 		block := &HclModule{
 			Name:    "aws_config",
 			Source:  source,
@@ -148,6 +149,7 @@ func (s *GenerateAwsTfConfiguration) CreateConfigBlock() {
 		}
 		s.Blocks = append(s.Blocks, CreateModule(block))
 
+		// Add sub accounts
 		for profile := range s.Args.Profiles {
 			s.Blocks = append(s.Blocks, CreateModule(&HclModule{
 				Name:    fmt.Sprintf("aws_config_%s", profile),

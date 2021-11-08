@@ -2,6 +2,7 @@ package generate_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/lacework/go-sdk/generate"
@@ -128,6 +129,30 @@ func TestGenerationCloudtrailExistingRole(t *testing.T) {
 	assert.Equal(t,
 		fmt.Sprintf("iam_role_external_id=\"%s\"\n", extId),
 		string(data.Blocks[0].Body().GetAttribute("iam_role_external_id").BuildTokens(nil).Bytes()))
+}
+
+func TestConsolidatedCtWithMultipleAccounts(t *testing.T) {
+	data := generate.NewAwsTFConfiguration(&generate.GenerateAwsTfConfigurationArgs{
+		ConfigureCloudtrail:       true,
+		ConfigureConfig:           true,
+		UseConsolidatedCloudtrail: true,
+		ConfigureMoreAccounts:     true,
+		AwsProfile:                "main",
+		Profiles: map[string]string{
+			"subaccount1": "us-east-1",
+			"subaccount2": "us-east-2",
+		},
+	})
+
+	strippedData := strings.ReplaceAll(strings.ReplaceAll(data, "\n", ""), " ", "")
+	assert.Contains(t, strippedData, "provider\"aws\"{alias=\"main\"profile=\"main\"}")
+	assert.Contains(t, strippedData, "providers={aws=aws.main}")
+	assert.Contains(t, strippedData, "module\"aws_config_subaccount1\"")
+	assert.Contains(t, strippedData, "providers={aws=aws.subaccount1}")
+	assert.Contains(t, strippedData, "provider\"aws\"{alias=\"subaccount1\"profile=\"subaccount1\"region=\"us-east-1\"}")
+	assert.Contains(t, strippedData, "module\"aws_config_subaccount2\"")
+	assert.Contains(t, strippedData, "providers={aws=aws.subaccount2}")
+	assert.Contains(t, strippedData, "provider\"aws\"{alias=\"subaccount2\"profile=\"subaccount2\"region=\"us-east-2\"}")
 }
 
 var requiredProviders = `terraform {
