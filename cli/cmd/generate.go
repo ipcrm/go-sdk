@@ -66,16 +66,16 @@ func promptAwsGenerate() (string, error) {
 
 	ctQuestions := []*survey.Question{
 		{
+			Name:   "useConsolidatedCloudtrail",
+			Prompt: &survey.Confirm{Message: "Use consolidated Cloudtrail?"},
+		},
+		{
 			Name:   "awsRegion",
 			Prompt: &survey.Input{Message: "Specify the AWS region Cloudtrail, SNS, and S3 resources should use"},
 		},
 		{
 			Name:   "existingBucketArn",
 			Prompt: &survey.Input{Message: "Specify an existing bucket ARN used for Cloudtrail logs"},
-		},
-		{
-			Name:   "useConsolidatedCloudtrail",
-			Prompt: &survey.Confirm{Message: "Use consolidated Cloudtrail?"},
 		},
 		{
 			Name:   "useExistingIamRole",
@@ -131,6 +131,7 @@ func promptAwsGenerate() (string, error) {
 		},
 	}
 
+	// If an existing IAM role is to be used, we need to collect the details
 	if ctAnswers.UseExistingIamRole {
 		err := survey.Ask(ctExistingIamQuestions, &ctExistingIamAnswers,
 			survey.WithIcons(promptIconsFunc),
@@ -140,12 +141,42 @@ func promptAwsGenerate() (string, error) {
 		}
 	}
 
+	// If a new bucket is to be created; should the force destroy bit be set?
 	var forceDestroyS3Bucket bool
 	if ctAnswers.ExistingBucketArn != "" {
-		survey.AskOne(&survey.Confirm{Message: "Should the new S3 bucket have force destroy enabled?"}, forceDestroyS3Bucket)
+		survey.AskOne(
+			&survey.Confirm{Message: "Should the new S3 bucket have force destroy enabled?"},
+			&forceDestroyS3Bucket)
 	}
 
-	cli.StartProgress(" Generating Terraform Code...")
+	// Let's collect up the other AWS accounts they would like to support
+	collectMoreAccounts := false
+	if ctAnswers.UseConsolidatedCloudtrail { // TODO This isn't the only time there might be sub-accounts
+		survey.AskOne(
+			&survey.Confirm{Message: "Are there additional AWS accounts to intergrate for Configuration?"},
+			&collectMoreAccounts)
+	}
+
+	askAgain := true
+	var profiles []string
+	if collectMoreAccounts {
+		for askAgain {
+			var value string
+			survey.AskOne(
+				&survey.Input{Message: "Supply the profile name for the AWS account"},
+				&value,
+				survey.WithValidator(survey.Required))
+			profiles = append(profiles, value)
+
+			survey.AskOne(
+				&survey.Confirm{Message: "Add another AWS account?"},
+				&askAgain,
+			)
+		}
+	}
+
+	// Generate TF Code
+	cli.StartProgress("Generating Terraform Code...")
 	hcl := generate.NewAwsTFConfiguration(&generate.GenerateAwsTfConfigurationArgs{
 		ConfigureCloudtrail:       answers.ConfigureCloudtrail,
 		ConfigureConfig:           answers.ConfigureConfig,
@@ -158,6 +189,7 @@ func promptAwsGenerate() (string, error) {
 		ExistingSnsTopicArn:       ctAnswers.ExistingSnsTopicName,
 		UseConsolidatedCloudtrail: ctAnswers.UseConsolidatedCloudtrail,
 		ForceDestroyS3Bucket:      forceDestroyS3Bucket,
+		Profiles:                  profiles,
 	})
 
 	cli.StopProgress()
