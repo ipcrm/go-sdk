@@ -74,8 +74,10 @@ func promptAwsGenerate() (string, error) {
 			Prompt: &survey.Confirm{Message: "Use consolidated Cloudtrail?"},
 		},
 		{
-			Name:   "awsRegion",
-			Prompt: &survey.Input{Message: "(Optional) Specify the AWS region Cloudtrail, SNS, and S3 resources should use:"},
+			// TODO add validator
+			Name:     "awsRegion",
+			Prompt:   &survey.Input{Message: "Specify the AWS region Cloudtrail, SNS, and S3 resources should use:"},
+			Validate: survey.Required,
 		},
 		{
 			Name:   "existingBucketArn",
@@ -83,7 +85,7 @@ func promptAwsGenerate() (string, error) {
 		},
 		{
 			Name:   "useExistingIamRole",
-			Prompt: &survey.Confirm{Message: "Use an existing IAM Role?"},
+			Prompt: &survey.Confirm{Message: "(Optional) Use an existing IAM Role?"},
 		},
 	}
 
@@ -191,6 +193,7 @@ func promptAwsGenerate() (string, error) {
 	if collectMoreAccounts {
 		// Determine the profile for the main account
 		err := survey.AskOne(
+			// TODO Make this prompt better
 			&survey.Input{Message: "What is the AWS profile name for the main account?"},
 			&mainAccountProfile,
 			survey.WithValidator(survey.Required),
