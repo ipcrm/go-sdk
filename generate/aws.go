@@ -61,15 +61,14 @@ type GenerateAwsTfConfigurationArgs struct {
 }
 
 func NewAwsTFConfiguration(args *GenerateAwsTfConfigurationArgs) string {
-	blocks := []*hclwrite.Block{}
-	CombineHclBlocks(&blocks,
-		addRequiredProviders(),
-		createAwsProviderBlock(args),
-		createLaceworkProviderBlock(args),
-		createConfigBlock(args),
-		createCloudtrailBlock(args),
-	)
-	return CreateHclStringOutput(blocks)
+	return CreateHclStringOutput(
+		CombineHclBlocks(
+			addRequiredProviders(),
+			createAwsProviderBlock(args),
+			createLaceworkProviderBlock(args),
+			createConfigBlock(args),
+			createCloudtrailBlock(args),
+		))
 }
 
 func addRequiredProviders() *hclwrite.Block {
