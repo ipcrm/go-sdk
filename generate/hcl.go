@@ -232,3 +232,22 @@ func CreateSimpleTraversal(input []string) hcl.Traversal {
 	}
 	return traversers
 }
+
+// Simple helper to combine multiple blocks (or slices of blocks) into a single slice to be rendered to string
+func CombineHclBlocks(blocks *[]*hclwrite.Block, results ...interface{}) {
+	// Combine all blocks into single flat slice
+	for _, result := range results {
+		switch v := result.(type) {
+		case *hclwrite.Block:
+			if v != nil {
+				*blocks = append(*blocks, v)
+			}
+		case []*hclwrite.Block:
+			if len(v) > 0 {
+				*blocks = append(*blocks, v...)
+			}
+		default:
+			panic("Unknown type supplied!")
+		}
+	}
+}

@@ -60,54 +60,48 @@ type GenerateAwsTfConfigurationArgs struct {
 	LaceworkProfile string
 }
 
-type GenerateAwsTfConfiguration struct {
-	Args *GenerateAwsTfConfigurationArgs
-
-	Blocks []*hclwrite.Block
-}
-
 func NewAwsTFConfiguration(args *GenerateAwsTfConfigurationArgs) string {
-	s := &GenerateAwsTfConfiguration{
-		Args: args,
-	}
-	s.AddRequiredProviders()
-	s.CreateAwsProviderBlock()
-	s.CreateLaceworkProviderBlock()
-	s.CreateConfigBlock()
-	s.CreateCloudtrailBlock()
-	return CreateHclStringOutput(s.Blocks)
+	blocks := []*hclwrite.Block{}
+	CombineHclBlocks(&blocks,
+		addRequiredProviders(),
+		createAwsProviderBlock(args),
+		createLaceworkProviderBlock(args),
+		createConfigBlock(args),
+		createCloudtrailBlock(args),
+	)
+	return CreateHclStringOutput(blocks)
 }
 
-func (s *GenerateAwsTfConfiguration) AddRequiredProviders() {
-	s.Blocks = append(s.Blocks,
-		CreateRequiredProviders([]*HclRequiredProvider{{
-			Name:    "lacework",
-			Source:  "lacework/lacework",
-			Version: "~> 0.3"}},
-		),
+func addRequiredProviders() *hclwrite.Block {
+	return CreateRequiredProviders([]*HclRequiredProvider{{
+		Name:    "lacework",
+		Source:  "lacework/lacework",
+		Version: "~> 0.3"}},
 	)
 }
 
-func (s *GenerateAwsTfConfiguration) CreateAwsProviderBlock() {
-	if s.Args.AwsRegion != "" || s.Args.ConfigureMoreAccounts {
+func createAwsProviderBlock(args *GenerateAwsTfConfigurationArgs) []*hclwrite.Block {
+	blocks := []*hclwrite.Block{}
+	if args.AwsRegion != "" || args.ConfigureMoreAccounts {
 		attrs := map[string]interface{}{}
-		if s.Args.AwsRegion != "" {
-			attrs["region"] = s.Args.AwsRegion
+		if args.AwsRegion != "" {
+			attrs["region"] = args.AwsRegion
 		}
 
-		if s.Args.ConfigureMoreAccounts {
+		if args.ConfigureMoreAccounts {
 			attrs["alias"] = "main"
-			attrs["profile"] = s.Args.AwsProfile
+			attrs["profile"] = args.AwsProfile
 		}
-		s.Blocks = append(s.Blocks, CreateProvider(&HclProvider{
+
+		blocks = append(blocks, CreateProvider(&HclProvider{
 			Name:       "aws",
 			Attributes: attrs,
 		}))
 	}
 
-	if s.Args.ConfigureMoreAccounts {
-		for profile, region := range s.Args.Profiles {
-			s.Blocks = append(s.Blocks, CreateProvider(&HclProvider{
+	if args.ConfigureMoreAccounts {
+		for profile, region := range args.Profiles {
+			blocks = append(blocks, CreateProvider(&HclProvider{
 				Name: "aws",
 				Attributes: map[string]interface{}{
 					"alias":   profile,
@@ -117,24 +111,28 @@ func (s *GenerateAwsTfConfiguration) CreateAwsProviderBlock() {
 			}))
 		}
 	}
+
+	return blocks
 }
 
-func (s *GenerateAwsTfConfiguration) CreateLaceworkProviderBlock() {
-	if s.Args.LaceworkProfile != "" {
-		s.Blocks = append(s.Blocks, CreateProvider(&HclProvider{
+func createLaceworkProviderBlock(args *GenerateAwsTfConfigurationArgs) *hclwrite.Block {
+	if args.LaceworkProfile != "" {
+		return CreateProvider(&HclProvider{
 			Name: "lacework",
 			Attributes: map[string]interface{}{
-				"profile": s.Args.LaceworkProfile,
+				"profile": args.LaceworkProfile,
 			},
-		}))
+		})
 	}
+	return nil
 }
 
-func (s *GenerateAwsTfConfiguration) CreateConfigBlock() {
+func createConfigBlock(args *GenerateAwsTfConfigurationArgs) []*hclwrite.Block {
 	source := "lacework/config/aws"
 	version := "~> 0.1"
 
-	if s.Args.ConfigureConfig {
+	blocks := []*hclwrite.Block{}
+	if args.ConfigureConfig {
 		// Add main account
 		block := &HclModule{
 			Name:    "aws_config",
@@ -142,16 +140,16 @@ func (s *GenerateAwsTfConfiguration) CreateConfigBlock() {
 			Version: version,
 		}
 
-		if s.Args.ConfigureMoreAccounts {
+		if args.ConfigureMoreAccounts {
 			block.ProviderDetails = map[string]string{
 				"aws": "aws.main",
 			}
 		}
-		s.Blocks = append(s.Blocks, CreateModule(block))
+		blocks = append(blocks, CreateModule(block))
 
 		// Add sub accounts
-		for profile := range s.Args.Profiles {
-			s.Blocks = append(s.Blocks, CreateModule(&HclModule{
+		for profile := range args.Profiles {
+			blocks = append(blocks, CreateModule(&HclModule{
 				Name:    fmt.Sprintf("aws_config_%s", profile),
 				Source:  source,
 				Version: version,
@@ -161,53 +159,57 @@ func (s *GenerateAwsTfConfiguration) CreateConfigBlock() {
 			}))
 		}
 	}
+
+	return blocks
 }
 
-func (s *GenerateAwsTfConfiguration) CreateCloudtrailBlock() {
-	if s.Args.ConfigureCloudtrail {
+func createCloudtrailBlock(args *GenerateAwsTfConfigurationArgs) *hclwrite.Block {
+	if args.ConfigureCloudtrail {
 		data := &HclModule{
 			Name:       "main_cloudtrail",
 			Source:     "lacework/cloudtrail/aws",
 			Version:    "~> 0.1",
 			Attributes: map[string]interface{}{},
 		}
-		if s.Args.ForceDestroyS3Bucket && s.Args.UseExistingCloudtrail == false {
+		if args.ForceDestroyS3Bucket && args.UseExistingCloudtrail == false {
 			data.Attributes["bucket_force_destroy"] = true
 		}
 
-		if s.Args.UseConsolidatedCloudtrail {
+		if args.UseConsolidatedCloudtrail {
 			data.Attributes["consolidated_trail"] = true
 		}
 
-		if s.Args.ExistingSnsTopicArn != "" {
+		if args.ExistingSnsTopicArn != "" {
 			data.Attributes["use_existing_sns_topic"] = true
-			data.Attributes["sns_topic_arn"] = s.Args.ExistingSnsTopicArn
+			data.Attributes["sns_topic_arn"] = args.ExistingSnsTopicArn
 		}
 
-		if s.Args.UseExistingIamRole != true && s.Args.ConfigureConfig {
+		if args.UseExistingIamRole != true && args.ConfigureConfig {
 			data.Attributes["use_existing_iam_role"] = true
 			data.Attributes["iam_role_name"] = CreateSimpleTraversal([]string{"module", "aws_config", "iam_role_name"})
 			data.Attributes["iam_role_arn"] = CreateSimpleTraversal([]string{"module", "aws_config", "iam_role_arn"})
 			data.Attributes["iam_role_external_id"] = CreateSimpleTraversal([]string{"module", "aws_config", "external_id"})
 		}
 
-		if s.Args.UseExistingIamRole {
+		if args.UseExistingIamRole {
 			data.Attributes["use_existing_iam_role"] = true
-			data.Attributes["iam_role_name"] = s.Args.ExistingIamRoleName
-			data.Attributes["iam_role_arn"] = s.Args.ExistingIamRoleArn
-			data.Attributes["iam_role_external_id"] = s.Args.ExistingIamRoleExternalId
+			data.Attributes["iam_role_name"] = args.ExistingIamRoleName
+			data.Attributes["iam_role_arn"] = args.ExistingIamRoleArn
+			data.Attributes["iam_role_external_id"] = args.ExistingIamRoleExternalId
 		}
 
-		if s.Args.UseExistingCloudtrail {
+		if args.UseExistingCloudtrail {
 			data.Attributes["use_existing_cloudtrail"] = true
-			data.Attributes["bucket_arn"] = s.Args.ExistingBucketArn
+			data.Attributes["bucket_arn"] = args.ExistingBucketArn
 		}
 
-		if s.Args.ConfigureMoreAccounts {
+		if args.ConfigureMoreAccounts {
 			data.ProviderDetails = map[string]string{
 				"aws": "aws.main",
 			}
 		}
-		s.Blocks = append(s.Blocks, CreateModule(data))
+		return CreateModule(data)
 	}
+
+	return nil
 }
