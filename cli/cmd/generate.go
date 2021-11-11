@@ -139,12 +139,63 @@ func init() {
 	generateTfCommand.AddCommand(generateAwsTfCommand)
 }
 
-func WrappedAskOne(p survey.Prompt, response interface{}) error {
+// Only prompt for an input if the CLI is interactive
+func SurveyQuestionInteractiveOnly(p survey.Prompt, response interface{}, opts ...survey.AskOpt) error {
 	if !cli.nonInteractive {
-		err := survey.AskOne(p, response)
+		err := survey.AskOne(p, response, opts...)
 		if err != nil {
 			return err
 		}
 	}
+	return nil
+}
+
+// Only prompt for an input if the CLI is interactive and validation is true
+func SurveyQuestionWithValidation(validation bool, p survey.Prompt, response interface{}, opts ...survey.AskOpt) error {
+	if validation {
+		return SurveyQuestionInteractiveOnly(p, response, opts...)
+	}
+	return nil
+}
+
+type SurveyQuestionWithValidationArgs struct {
+	Prompt     survey.Prompt
+	Validation bool
+	Response   interface{}
+	Opts       []survey.AskOpt
+}
+
+// Prompt for many values at once
+//
+// validation: Can be used to skip the entire set of questions
+func SurveyMultipleQuestionWithValidation(validation bool, questions []SurveyQuestionWithValidationArgs) error {
+	if validation {
+		for _, qs := range questions {
+			if err := SurveyQuestionWithValidation(qs.Validation, qs.Prompt, qs.Response, qs.Opts...); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+// Only prompt for an inputs if the CLI is interactive
+func WrappedAsk(qs []*survey.Question, response interface{}, opts ...survey.AskOpt) error {
+	if !cli.nonInteractive {
+		err := survey.Ask(qs, response, append(opts, survey.WithIcons(promptIconsFunc))...)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// Only prompt for an inputs if the CLI is interactive and validation is true
+func WrappedAskValidation(validation bool, qs []*survey.Question, response interface{}, opts ...survey.AskOpt) error {
+	if validation {
+		return WrappedAsk(qs, response, opts...)
+	}
+
 	return nil
 }
