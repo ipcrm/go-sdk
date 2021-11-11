@@ -6,9 +6,11 @@ import (
 	"github.com/hashicorp/hcl/v2/hclwrite"
 )
 
-type GenerateAwsTfConfigurationArgs struct {
-	// Supplied values
+var (
+	GenerateAwsCommandState = &GenerateAwsTfConfigurationArgs{}
+)
 
+type GenerateAwsTfConfigurationArgs struct {
 	// Should we configure cloudtrail integration in LW?
 	ConfigureCloudtrail bool
 
@@ -58,6 +60,10 @@ type GenerateAwsTfConfigurationArgs struct {
 
 	// Optional. Lacework Profile to use
 	LaceworkProfile string
+
+	// Internal CLI use
+	ConfigureCloudtrailCli bool
+	ConfigureConfigCli     bool
 }
 
 func NewAwsTFConfiguration(args *GenerateAwsTfConfigurationArgs) string {

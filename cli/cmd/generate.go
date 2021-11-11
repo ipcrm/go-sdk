@@ -25,12 +25,8 @@ var (
 		Use:   "aws",
 		Short: "generate code for aws environment",
 		Long:  "Genereate Terraform code for deploying into a new AWS enviornment.",
-		RunE: func(_ *cobra.Command, args []string) error {
-			if !cli.InteractiveMode() {
-				return errors.New("interactive mode is disabled")
-			}
-
-			location, err := promptAwsGenerate()
+		RunE: func(cmd *cobra.Command, args []string) error {
+			location, err := promptAwsGenerate(generate.GenerateAwsCommandState)
 			if err != nil {
 				return errors.Wrap(err, "unable to create iac code")
 			}
@@ -45,29 +41,27 @@ func init() {
 	// add the iac-generate command
 	rootCmd.AddCommand(generateTfCommand)
 
+	// add flags to sub commands
+	// TODO Share the help with the interactive generation
+	generateAwsTfCommand.PersistentFlags().BoolVar(
+		&generate.GenerateAwsCommandState.ConfigureCloudtrailCli, "cloudtrail", false, "Configure Cloudtrail?")
+	generateAwsTfCommand.PersistentFlags().BoolVar(
+		&generate.GenerateAwsCommandState.ConfigureConfigCli, "config", false, "Enable Config Integration?")
+	generateAwsTfCommand.PersistentFlags().StringVar(
+		&generate.GenerateAwsCommandState.AwsRegion, "awsregion", "", "Specify AWS Region")
+	generateAwsTfCommand.PersistentFlags().StringVar(
+		&generate.GenerateAwsCommandState.AwsProfile, "awsprofile", "", "Specify AWS Profile")
+	generateAwsTfCommand.PersistentFlags().StringVar(
+		&generate.GenerateAwsCommandState.ExistingBucketArn,
+		"existingbucketarn",
+		"",
+		"Specify existing Cloudtrail S3 bucket ARN")
+
 	// add sub-commands to the iac-generate command
 	generateTfCommand.AddCommand(generateAwsTfCommand)
 }
 
-func promptAwsGenerate() (string, error) {
-	questions := []*survey.Question{
-		{
-			Name:     "configureCloudtrail",
-			Prompt:   &survey.Confirm{Message: "Enable Cloudtrail Integration?"},
-			Validate: survey.Required,
-		},
-		{
-			Name:     "configureConfig",
-			Prompt:   &survey.Confirm{Message: "Enable Config Integration?"},
-			Validate: survey.Required,
-		},
-	}
-
-	answers := struct {
-		ConfigureCloudtrail bool `survey:"configureCloudtrail"`
-		ConfigureConfig     bool `survey:"configureConfig"`
-	}{}
-
+func promptAwsCtQuestions(config *generate.GenerateAwsTfConfigurationArgs) error {
 	ctQuestions := []*survey.Question{
 		{
 			Name:   "useConsolidatedCloudtrail",
@@ -97,22 +91,19 @@ func promptAwsGenerate() (string, error) {
 		UseExistingIamRole        bool   `survey:"useExistingIamRole"`
 	}{}
 
-	err := survey.Ask(questions, &answers,
-		survey.WithIcons(promptIconsFunc),
-	)
-	if err != nil {
-		return "", err
-	}
-
-	if answers.ConfigureCloudtrail {
+	if config.ConfigureCloudtrail && !cli.nonInteractive {
 		err := survey.Ask(ctQuestions, &ctAnswers,
 			survey.WithIcons(promptIconsFunc),
 		)
 		if err != nil {
-			return "", err
+			return err
 		}
 	}
 
+	return nil
+}
+
+func promptAwsExistingIamQuestions(config *generate.GenerateAwsTfConfigurationArgs) error {
 	ctExistingIamAnswers := struct {
 		ExistingIamRoleName       string `survey:"existingIamRoleName"`
 		ExistingIamRoleArn        string `survey:"existingIamRoleArn"`
@@ -138,37 +129,19 @@ func promptAwsGenerate() (string, error) {
 	}
 
 	// If an existing IAM role is to be used, we need to collect the details
-	if ctAnswers.UseExistingIamRole {
+	if config.UseExistingIamRole && !cli.nonInteractive {
 		err := survey.Ask(ctExistingIamQuestions, &ctExistingIamAnswers,
 			survey.WithIcons(promptIconsFunc),
 		)
 		if err != nil {
-			return "", err
+			return err
 		}
 	}
 
-	// If a new bucket is to be created; should the force destroy bit be set?
-	var forceDestroyS3Bucket bool
-	if ctAnswers.ExistingBucketArn != "" {
-		err := survey.AskOne(
-			&survey.Confirm{Message: "Should the new S3 bucket have force destroy enabled?"},
-			&forceDestroyS3Bucket)
-		if err != nil {
-			return "", err
-		}
-	}
+	return nil
+}
 
-	// Let's collect up the other AWS accounts they would like to support
-	collectMoreAccounts := false
-	if ctAnswers.UseConsolidatedCloudtrail { // TODO This isn't the only time there might be sub-accounts
-		err := survey.AskOne(
-			&survey.Confirm{Message: "Are there additional AWS accounts to intergrate for Configuration?"},
-			&collectMoreAccounts)
-		if err != nil {
-			return "", err
-		}
-	}
-
+func promptAwsAdditionalAccountQuestions(config *generate.GenerateAwsTfConfigurationArgs) error {
 	type accountAnswers struct {
 		AccountProfileName   string `survey:"accountProfileName"`
 		AccountProfileRegion string `survey:"accountProfileRegion"`
@@ -188,56 +161,109 @@ func promptAwsGenerate() (string, error) {
 
 	// For each added account, collect it's profile name and the region that should be used
 	accountDetails := map[string]string{}
-	var mainAccountProfile string
 	askAgain := true
-	if collectMoreAccounts {
-		// Determine the profile for the main account
-		err := survey.AskOne(
-			// TODO Make this prompt better
-			&survey.Input{Message: "What is the AWS profile name for the main account?"},
-			&mainAccountProfile,
-			survey.WithValidator(survey.Required),
+
+	// Determine the profile for the main account
+	err := survey.AskOne(
+		// TODO Make this prompt better
+		&survey.Input{Message: "What is the AWS profile name for the main account?"},
+		&config.AwsProfile,
+		survey.WithValidator(survey.Required),
+	)
+	if err != nil {
+		return err
+	}
+
+	answers := accountAnswers{}
+	for askAgain {
+		err := survey.Ask(accountQuestions, &answers)
+		if err != nil {
+			return err
+		}
+		accountDetails[answers.AccountProfileName] = answers.AccountProfileRegion
+
+		err = survey.AskOne(
+			&survey.Confirm{Message: "Add another AWS account?"},
+			&askAgain,
 		)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func wrappedAskOne(p survey.Prompt, response interface{}) error {
+	if !cli.nonInteractive {
+		err := survey.AskOne(p, response)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func promptAwsGenerate(
+	config *generate.GenerateAwsTfConfigurationArgs) (string, error) {
+
+	if !config.ConfigureConfigCli {
+		err := wrappedAskOne(&survey.Confirm{Message: "Enable Config Integration?"}, &config.ConfigureConfig)
+		if err != nil {
+			return "", err
+		}
+	} else {
+		config.ConfigureConfig = true
+	}
+
+	if !config.ConfigureCloudtrailCli {
+		err := wrappedAskOne(&survey.Confirm{Message: "Enable Cloudtrail Integration?"}, &config.ConfigureCloudtrail)
+		if err != nil {
+			return "", err
+		}
+	} else {
+		config.ConfigureCloudtrail = true
+	}
+
+	// Set CT Specific values
+	err := promptAwsCtQuestions(config)
+	if err != nil {
+		return "", err
+	}
+
+	// Set Existing IAM Role values
+	err = promptAwsExistingIamQuestions(config)
+	if err != nil {
+		return "", err
+	}
+
+	// If a new bucket is to be created; should the force destroy bit be set?
+	if config.ExistingBucketArn != "" {
+		err := survey.AskOne(
+			&survey.Confirm{Message: "Should the new S3 bucket have force destroy enabled?"},
+			&config.ForceDestroyS3Bucket)
+		if err != nil {
+			return "", err
+		}
+	}
+
+	// Let's collect up the other AWS accounts they would like to support
+	if config.UseConsolidatedCloudtrail { // TODO This isn't the only time there might be sub-accounts
+		err := survey.AskOne(
+			&survey.Confirm{Message: "Are there additional AWS accounts to intergrate for Configuration?"},
+			&config.ConfigureMoreAccounts)
 		if err != nil {
 			return "", err
 		}
 
-		answers := accountAnswers{}
-		for askAgain {
-			err := survey.Ask(accountQuestions, &answers)
-			if err != nil {
-				return "", err
-			}
-			accountDetails[answers.AccountProfileName] = answers.AccountProfileRegion
-
-			err = survey.AskOne(
-				&survey.Confirm{Message: "Add another AWS account?"},
-				&askAgain,
-			)
-			if err != nil {
-				return "", err
-			}
+		if config.ConfigureMoreAccounts && !cli.nonInteractive {
+			promptAwsAdditionalAccountQuestions(config)
 		}
 	}
 
 	// Generate TF Code
 	cli.StartProgress("Generating Terraform Code...")
-	hcl := generate.NewAwsTFConfiguration(&generate.GenerateAwsTfConfigurationArgs{
-		ConfigureCloudtrail:       answers.ConfigureCloudtrail,
-		ConfigureConfig:           answers.ConfigureConfig,
-		AwsRegion:                 ctAnswers.AwsRegion,
-		AwsProfile:                mainAccountProfile,
-		ExistingIamRoleArn:        ctExistingIamAnswers.ExistingIamRoleArn,
-		ExistingIamRoleName:       ctExistingIamAnswers.ExistingIamRoleName,
-		ExistingIamRoleExternalId: ctExistingIamAnswers.ExistingIamRoleExternalId,
-		UseExistingIamRole:        ctAnswers.UseExistingIamRole,
-		ExistingBucketArn:         ctAnswers.ExistingBucketArn,
-		ExistingSnsTopicArn:       ctAnswers.ExistingSnsTopicName,
-		UseConsolidatedCloudtrail: ctAnswers.UseConsolidatedCloudtrail,
-		ForceDestroyS3Bucket:      forceDestroyS3Bucket,
-		ConfigureMoreAccounts:     collectMoreAccounts,
-		Profiles:                  accountDetails,
-	})
+	hcl := generate.NewAwsTFConfiguration(config)
 
 	// TODO Improve all this && Make output dir configurable
 	// Write out
