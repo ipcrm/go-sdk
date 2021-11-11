@@ -2,10 +2,11 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/lacework/go-sdk/generate"
-	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -24,13 +25,57 @@ var (
 		Short: "generate code for aws environment",
 		Long:  "Genereate Terraform code for deploying into a new AWS enviornment.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			location, err := promptAwsGenerate(generate.GenerateAwsCommandState)
+			// Generate TF Code
+			cli.StartProgress("Generating Terraform Code...")
+			hcl := generate.NewAwsTFConfiguration(&generate.GenerateAwsTfConfigurationArgs{
+				ConfigureCloudtrail:       generate.GenerateAwsCommandState.ConfigureCloudtrail,
+				ConfigureConfig:           generate.GenerateAwsCommandState.ConfigureConfig,
+				AwsRegion:                 generate.GenerateAwsCommandState.AwsRegion,
+				AwsProfile:                generate.GenerateAwsCommandState.AwsProfile,
+				UseExistingCloudtrail:     generate.GenerateAwsCommandState.UseExistingCloudtrail,
+				ExistingBucketArn:         generate.GenerateAwsCommandState.ExistingBucketArn,
+				ExistingIamRoleName:       generate.GenerateAwsCommandState.ExistingIamRoleName,
+				ExistingIamRoleArn:        generate.GenerateAwsCommandState.ExistingIamRoleArn,
+				ExistingIamRoleExternalId: generate.GenerateAwsCommandState.ExistingIamRoleExternalId,
+				ExistingSnsTopicArn:       generate.GenerateAwsCommandState.ExistingSnsTopicArn,
+				UseConsolidatedCloudtrail: generate.GenerateAwsCommandState.UseConsolidatedCloudtrail,
+				ForceDestroyS3Bucket:      generate.GenerateAwsCommandState.ForceDestroyS3Bucket,
+				Profiles:                  generate.GenerateAwsCommandState.Profiles,
+				ConfigureMoreAccounts:     generate.GenerateAwsCommandState.ConfigureMoreAccounts,
+				LaceworkProfile:           generate.GenerateAwsCommandState.LaceworkProfile,
+			})
+
+			// TODO Improve all this && Make output dir configurable
+			// Write out
+			dirname, err := os.UserHomeDir()
 			if err != nil {
-				return errors.Wrap(err, "unable to create iac code")
+				return err
 			}
 
+			directory := filepath.FromSlash(fmt.Sprintf("%s/%s", dirname, "lacework"))
+			if _, err := os.Stat(directory); os.IsNotExist(err) {
+				err = os.Mkdir(directory, 0700)
+				if err != nil {
+					return err
+				}
+			}
+
+			location := fmt.Sprintf("%s/%s/main.tf", dirname, "lacework")
+			err = os.WriteFile(
+				filepath.FromSlash(location),
+				[]byte(hcl),
+				0700,
+			)
+			if err != nil {
+				return err
+			}
+
+			cli.StopProgress()
 			cli.OutputHuman(fmt.Sprintf("Terraform Code generated at %s!\n", location))
 			return nil
+		},
+		PreRunE: func(_ *cobra.Command, _ []string) error {
+			return promptAwsGenerate(generate.GenerateAwsCommandState)
 		},
 	}
 )

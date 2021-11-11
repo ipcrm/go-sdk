@@ -1,10 +1,6 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
-
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/lacework/go-sdk/generate"
 )
@@ -143,12 +139,12 @@ func promptAwsAdditionalAccountQuestions(config *generate.GenerateAwsTfConfigura
 }
 
 func promptAwsGenerate(
-	config *generate.GenerateAwsTfConfiguration) (string, error) {
+	config *generate.GenerateAwsTfConfiguration) error {
 
 	if !config.ConfigureConfigCli {
 		err := WrappedAskOne(&survey.Confirm{Message: "Enable Config Integration?"}, &config.ConfigureConfig)
 		if err != nil {
-			return "", err
+			return err
 		}
 	} else {
 		config.ConfigureConfig = true
@@ -157,7 +153,7 @@ func promptAwsGenerate(
 	if !config.ConfigureCloudtrailCli {
 		err := WrappedAskOne(&survey.Confirm{Message: "Enable Cloudtrail Integration?"}, &config.ConfigureCloudtrail)
 		if err != nil {
-			return "", err
+			return err
 		}
 	} else {
 		config.ConfigureCloudtrail = true
@@ -166,13 +162,13 @@ func promptAwsGenerate(
 	// Set CT Specific values
 	err := promptAwsCtQuestions(config)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	// Set Existing IAM Role values
 	err = promptAwsExistingIamQuestions(config)
 	if err != nil {
-		return "", err
+		return err
 	}
 
 	// If a new bucket is to be created; should the force destroy bit be set?
@@ -181,7 +177,7 @@ func promptAwsGenerate(
 			&survey.Confirm{Message: "Should the new S3 bucket have force destroy enabled?"},
 			&config.ForceDestroyS3Bucket)
 		if err != nil {
-			return "", err
+			return err
 		}
 	}
 
@@ -191,59 +187,12 @@ func promptAwsGenerate(
 			&survey.Confirm{Message: "Are there additional AWS accounts to intergrate for Configuration?"},
 			&config.ConfigureMoreAccounts)
 		if err != nil {
-			return "", err
+			return err
 		}
 
 		if config.ConfigureMoreAccounts && !cli.nonInteractive {
 			promptAwsAdditionalAccountQuestions(config)
 		}
 	}
-
-	// Generate TF Code
-	cli.StartProgress("Generating Terraform Code...")
-	hcl := generate.NewAwsTFConfiguration(&generate.GenerateAwsTfConfigurationArgs{
-		ConfigureCloudtrail:       config.ConfigureCloudtrail,
-		ConfigureConfig:           config.ConfigureConfig,
-		AwsRegion:                 config.AwsRegion,
-		AwsProfile:                config.AwsProfile,
-		UseExistingCloudtrail:     config.UseExistingCloudtrail,
-		ExistingBucketArn:         config.ExistingBucketArn,
-		ExistingIamRoleName:       config.ExistingIamRoleName,
-		ExistingIamRoleArn:        config.ExistingIamRoleArn,
-		ExistingIamRoleExternalId: config.ExistingIamRoleExternalId,
-		ExistingSnsTopicArn:       config.ExistingSnsTopicArn,
-		UseConsolidatedCloudtrail: config.UseConsolidatedCloudtrail,
-		ForceDestroyS3Bucket:      config.ForceDestroyS3Bucket,
-		Profiles:                  config.Profiles,
-		ConfigureMoreAccounts:     config.ConfigureMoreAccounts,
-		LaceworkProfile:           config.LaceworkProfile,
-	})
-
-	// TODO Improve all this && Make output dir configurable
-	// Write out
-	dirname, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-
-	directory := filepath.FromSlash(fmt.Sprintf("%s/%s", dirname, "lacework"))
-	if _, err := os.Stat(directory); os.IsNotExist(err) {
-		err = os.Mkdir(directory, 0700)
-		if err != nil {
-			return "", err
-		}
-	}
-
-	location := fmt.Sprintf("%s/%s/main.tf", dirname, "lacework")
-	err = os.WriteFile(
-		filepath.FromSlash(location),
-		[]byte(hcl),
-		0700,
-	)
-	if err != nil {
-		return "", err
-	}
-
-	cli.StopProgress()
-	return location, err
+	return nil
 }
