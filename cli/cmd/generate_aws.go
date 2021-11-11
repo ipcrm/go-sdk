@@ -114,9 +114,9 @@ func promptAwsAdditionalAccountQuestions(config *generate.GenerateAwsTfConfigura
 	askAgain := true
 
 	// Determine the profile for the main account
-	if err := SurveyQuestionInteractiveOnly(
-		// TODO @ipcrm Make this prompt better
-		&survey.Input{Message: "What is the AWS profile name for the main account?"},
+	if err := SurveyQuestionWithValidation(
+		config.AwsProfile == "",
+		&survey.Input{Message: "What is the AWS profile name for the main account?"}, // TODO @ipcrm Make this prompt better
 		&config.AwsProfile,
 		survey.WithValidator(survey.Required)); err != nil {
 		return nil
