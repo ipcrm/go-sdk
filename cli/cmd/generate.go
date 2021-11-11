@@ -54,6 +54,41 @@ func init() {
 		"existingbucketarn",
 		"",
 		"Specify existing Cloudtrail S3 bucket ARN")
+	generateAwsTfCommand.PersistentFlags().StringVar(
+		&generate.GenerateAwsCommandState.ExistingIamRoleArn,
+		"existingiamrolearn",
+		"",
+		"Specify existing IAM role arn to use")
+	generateAwsTfCommand.PersistentFlags().StringVar(
+		&generate.GenerateAwsCommandState.ExistingIamRoleName,
+		"existingiamrolename",
+		"",
+		"Specify existing IAM role name to use")
+	generateAwsTfCommand.PersistentFlags().StringVar(
+		&generate.GenerateAwsCommandState.ExistingIamRoleExternalId,
+		"existingiamroleexternalid",
+		"",
+		"Specify existing IAM role external_id to use")
+	generateAwsTfCommand.PersistentFlags().StringVar(
+		&generate.GenerateAwsCommandState.ExistingIamRoleExternalId,
+		"existingsnstopicarn",
+		"",
+		"Specify existing SNS topic ARN")
+	generateAwsTfCommand.PersistentFlags().BoolVar(
+		&generate.GenerateAwsCommandState.ConsolidatedCtCli,
+		"consolidatedcloudtrail",
+		false,
+		"Use consolidated trail?")
+	generateAwsTfCommand.PersistentFlags().BoolVar(
+		&generate.GenerateAwsCommandState.ForceDestroyS3BucketCli,
+		"forcedestroys3",
+		false,
+		"Enable force destroy S3 bucket?")
+	generateAwsTfCommand.PersistentFlags().StringVar(
+		&generate.GenerateAwsCommandState.ExistingIamRoleExternalId,
+		"laceworkprofile",
+		"",
+		"Set the Lacework profile to use")
 
 	// add sub-commands to the iac-generate command
 	generateTfCommand.AddCommand(generateAwsTfCommand)

@@ -7,8 +7,21 @@ import (
 )
 
 var (
-	GenerateAwsCommandState = &GenerateAwsTfConfigurationArgs{}
+	GenerateAwsCommandState = &GenerateAwsTfConfiguration{}
 )
+
+type GenerateAwsTfConfiguration struct {
+	GenerateAwsTfConfigurationArgs
+
+	// Internal CLI use
+	ConfigureCloudtrailCli bool
+	// Internal CLI use
+	ConfigureConfigCli bool
+	// Internal CLI use
+	ConsolidatedCtCli bool
+	// Internal CLI use
+	ForceDestroyS3BucketCli bool
+}
 
 type GenerateAwsTfConfigurationArgs struct {
 	// Should we configure cloudtrail integration in LW?
@@ -60,10 +73,6 @@ type GenerateAwsTfConfigurationArgs struct {
 
 	// Optional. Lacework Profile to use
 	LaceworkProfile string
-
-	// Internal CLI use
-	ConfigureCloudtrailCli bool
-	ConfigureConfigCli     bool
 }
 
 func NewAwsTFConfiguration(args *GenerateAwsTfConfigurationArgs) string {

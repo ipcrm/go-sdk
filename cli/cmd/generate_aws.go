@@ -9,7 +9,7 @@ import (
 	"github.com/lacework/go-sdk/generate"
 )
 
-func promptAwsCtQuestions(config *generate.GenerateAwsTfConfigurationArgs) error {
+func promptAwsCtQuestions(config *generate.GenerateAwsTfConfiguration) error {
 	ctQuestions := []*survey.Question{
 		{
 			Name:   "useConsolidatedCloudtrail",
@@ -51,7 +51,7 @@ func promptAwsCtQuestions(config *generate.GenerateAwsTfConfigurationArgs) error
 	return nil
 }
 
-func promptAwsExistingIamQuestions(config *generate.GenerateAwsTfConfigurationArgs) error {
+func promptAwsExistingIamQuestions(config *generate.GenerateAwsTfConfiguration) error {
 	ctExistingIamAnswers := struct {
 		ExistingIamRoleName       string `survey:"existingIamRoleName"`
 		ExistingIamRoleArn        string `survey:"existingIamRoleArn"`
@@ -89,7 +89,7 @@ func promptAwsExistingIamQuestions(config *generate.GenerateAwsTfConfigurationAr
 	return nil
 }
 
-func promptAwsAdditionalAccountQuestions(config *generate.GenerateAwsTfConfigurationArgs) error {
+func promptAwsAdditionalAccountQuestions(config *generate.GenerateAwsTfConfiguration) error {
 	type accountAnswers struct {
 		AccountProfileName   string `survey:"accountProfileName"`
 		AccountProfileRegion string `survey:"accountProfileRegion"`
@@ -143,7 +143,7 @@ func promptAwsAdditionalAccountQuestions(config *generate.GenerateAwsTfConfigura
 }
 
 func promptAwsGenerate(
-	config *generate.GenerateAwsTfConfigurationArgs) (string, error) {
+	config *generate.GenerateAwsTfConfiguration) (string, error) {
 
 	if !config.ConfigureConfigCli {
 		err := WrappedAskOne(&survey.Confirm{Message: "Enable Config Integration?"}, &config.ConfigureConfig)
@@ -201,7 +201,23 @@ func promptAwsGenerate(
 
 	// Generate TF Code
 	cli.StartProgress("Generating Terraform Code...")
-	hcl := generate.NewAwsTFConfiguration(config)
+	hcl := generate.NewAwsTFConfiguration(&generate.GenerateAwsTfConfigurationArgs{
+		ConfigureCloudtrail:       config.ConfigureCloudtrail,
+		ConfigureConfig:           config.ConfigureConfig,
+		AwsRegion:                 config.AwsRegion,
+		AwsProfile:                config.AwsProfile,
+		UseExistingCloudtrail:     config.UseExistingCloudtrail,
+		ExistingBucketArn:         config.ExistingBucketArn,
+		ExistingIamRoleName:       config.ExistingIamRoleName,
+		ExistingIamRoleArn:        config.ExistingIamRoleArn,
+		ExistingIamRoleExternalId: config.ExistingIamRoleExternalId,
+		ExistingSnsTopicArn:       config.ExistingSnsTopicArn,
+		UseConsolidatedCloudtrail: config.UseConsolidatedCloudtrail,
+		ForceDestroyS3Bucket:      config.ForceDestroyS3Bucket,
+		Profiles:                  config.Profiles,
+		ConfigureMoreAccounts:     config.ConfigureMoreAccounts,
+		LaceworkProfile:           config.LaceworkProfile,
+	})
 
 	// TODO Improve all this && Make output dir configurable
 	// Write out
