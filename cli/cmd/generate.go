@@ -7,6 +7,7 @@ import (
 
 	"github.com/AlecAivazis/survey/v2"
 	"github.com/lacework/go-sdk/generate"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 )
 
@@ -17,6 +18,17 @@ var (
 		Aliases: []string{"iac-generate", "iac"},
 		Short:   "create iac code",
 		Long:    "Create IaC content for various different cloud environments and configurations",
+		PreRunE: func(cmd *cobra.Command, _ []string) error {
+			dirname, err := cmd.Flags().GetString("output")
+			if err == nil {
+				_, err := os.Stat(dirname)
+				if err != nil {
+					errors.Wrap(err, "could not access specified output location!")
+				}
+			}
+
+			return nil
+		},
 	}
 
 	// aws command is used to generate TF code for aws
@@ -46,34 +58,7 @@ var (
 				LaceworkProfile:           generate.GenerateAwsCommandState.LaceworkProfile,
 			})
 
-			// TODO Improve all this && Make output dir configurable
-			// Write out
-			dirname, err := os.UserHomeDir()
-			if err != nil {
-				return err
-			}
-
-			directory := filepath.FromSlash(fmt.Sprintf("%s/%s", dirname, "lacework"))
-			if _, err := os.Stat(directory); os.IsNotExist(err) {
-				err = os.Mkdir(directory, 0700)
-				if err != nil {
-					return err
-				}
-			}
-
-			location := fmt.Sprintf("%s/%s/main.tf", dirname, "lacework")
-			err = os.WriteFile(
-				filepath.FromSlash(location),
-				[]byte(hcl),
-				0700,
-			)
-			if err != nil {
-				return err
-			}
-
-			cli.StopProgress()
-			cli.OutputHuman(fmt.Sprintf("Terraform Code generated at %s!\n", location))
-			return nil
+			return writeHclOutput(hcl, cmd)
 		},
 		PreRunE: func(_ *cobra.Command, _ []string) error {
 			return promptAwsGenerate(generate.GenerateAwsCommandState)
@@ -84,6 +69,9 @@ var (
 func init() {
 	// add the iac-generate command
 	rootCmd.AddCommand(generateTfCommand)
+
+	// Add global flags for iac generation
+	generateTfCommand.PersistentFlags().String("output", "", "Location to write generated content")
 
 	// add flags to sub commands
 	// TODO Share the help with the interactive generation
@@ -151,9 +139,9 @@ func SurveyQuestionInteractiveOnly(p survey.Prompt, response interface{}, opts .
 	return nil
 }
 
-// Only prompt for an input if the CLI is interactive and validation is true
-func SurveyQuestionWithValidation(validation bool, p survey.Prompt, response interface{}, opts ...survey.AskOpt) error {
-	if validation {
+// Only prompt for an input if the CLI is interactive and check is true
+func SurveyQuestionWithValidation(check bool, p survey.Prompt, response interface{}, opts ...survey.AskOpt) error {
+	if check {
 		return SurveyQuestionInteractiveOnly(p, response, opts...)
 	}
 	return nil
@@ -168,11 +156,11 @@ type SurveyQuestionWithValidationArgs struct {
 
 // Prompt for many values at once
 //
-// validation: Can be used to skip the entire set of questions
-func SurveyMultipleQuestionWithValidation(questions []SurveyQuestionWithValidationArgs, validation ...bool) error {
+// checks: If supplied check(s) are true, questions will be asked
+func SurveyMultipleQuestionWithValidation(questions []SurveyQuestionWithValidationArgs, checks ...bool) error {
 	// Do validations pass?
 	ok := true
-	for _, v := range validation {
+	for _, v := range checks {
 		if !v {
 			ok = false
 		}
@@ -186,5 +174,42 @@ func SurveyMultipleQuestionWithValidation(questions []SurveyQuestionWithValidati
 			}
 		}
 	}
+	return nil
+}
+
+// Write HCL output
+func writeHclOutput(hcl string, cmd *cobra.Command) error {
+	// TODO Improve all this && Make output dir configurable
+	// Write out
+
+	var dirname string
+	dirname, err := cmd.Flags().GetString("output")
+	if err != nil {
+		dirname, err = os.UserHomeDir()
+		if err != nil {
+			return err
+		}
+	}
+
+	directory := filepath.FromSlash(fmt.Sprintf("%s/%s", dirname, "lacework"))
+	if _, err := os.Stat(directory); os.IsNotExist(err) {
+		err = os.Mkdir(directory, 0700)
+		if err != nil {
+			return err
+		}
+	}
+
+	location := fmt.Sprintf("%s/%s/main.tf", dirname, "lacework")
+	err = os.WriteFile(
+		filepath.FromSlash(location),
+		[]byte(hcl),
+		0700,
+	)
+	if err != nil {
+		return err
+	}
+
+	cli.StopProgress()
+	cli.OutputHuman(fmt.Sprintf("Terraform Code generated at %s!\n", location))
 	return nil
 }

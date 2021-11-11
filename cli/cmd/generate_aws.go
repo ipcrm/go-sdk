@@ -50,7 +50,7 @@ func promptAwsExistingIamQuestions(config *generate.GenerateAwsTfConfiguration) 
 	}
 
 	if err := SurveyQuestionWithValidation(
-		!generate.GenerateAwsCommandState.UseExistingIamRole,
+		!generate.GenerateAwsCommandState.UseExistingIamRole && generate.GenerateAwsCommandState.ConfigureCloudtrail,
 		&survey.Confirm{Message: "(Optional) Use an existing IAM Role?"},
 		&generate.GenerateAwsCommandState.UseExistingIamRole); err != nil {
 		return err
