@@ -38,6 +38,7 @@ var (
 				ExistingIamRoleArn:        generate.GenerateAwsCommandState.ExistingIamRoleArn,
 				ExistingIamRoleExternalId: generate.GenerateAwsCommandState.ExistingIamRoleExternalId,
 				ExistingSnsTopicArn:       generate.GenerateAwsCommandState.ExistingSnsTopicArn,
+				UseExistingIamRole:        generate.GenerateAwsCommandState.UseExistingIamRole,
 				UseConsolidatedCloudtrail: generate.GenerateAwsCommandState.UseConsolidatedCloudtrail,
 				ForceDestroyS3Bucket:      generate.GenerateAwsCommandState.ForceDestroyS3Bucket,
 				Profiles:                  generate.GenerateAwsCommandState.Profiles,
@@ -168,34 +169,22 @@ type SurveyQuestionWithValidationArgs struct {
 // Prompt for many values at once
 //
 // validation: Can be used to skip the entire set of questions
-func SurveyMultipleQuestionWithValidation(validation bool, questions []SurveyQuestionWithValidationArgs) error {
-	if validation {
+func SurveyMultipleQuestionWithValidation(questions []SurveyQuestionWithValidationArgs, validation ...bool) error {
+	// Do validations pass?
+	ok := true
+	for _, v := range validation {
+		if !v {
+			ok = false
+		}
+	}
+
+	// Ask questions
+	if ok {
 		for _, qs := range questions {
 			if err := SurveyQuestionWithValidation(qs.Validation, qs.Prompt, qs.Response, qs.Opts...); err != nil {
 				return err
 			}
 		}
 	}
-	return nil
-}
-
-// Only prompt for an inputs if the CLI is interactive
-func WrappedAsk(qs []*survey.Question, response interface{}, opts ...survey.AskOpt) error {
-	if !cli.nonInteractive {
-		err := survey.Ask(qs, response, append(opts, survey.WithIcons(promptIconsFunc))...)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// Only prompt for an inputs if the CLI is interactive and validation is true
-func WrappedAskValidation(validation bool, qs []*survey.Question, response interface{}, opts ...survey.AskOpt) error {
-	if validation {
-		return WrappedAsk(qs, response, opts...)
-	}
-
 	return nil
 }

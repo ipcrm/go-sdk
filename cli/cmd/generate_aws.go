@@ -25,14 +25,14 @@ func promptAwsCtQuestions(config *generate.GenerateAwsTfConfiguration) error {
 			config.AwsRegion == "",
 			&survey.Input{Message: "Specify the AWS region Cloudtrail, SNS, and S3 resources should use:"},
 			&generate.GenerateAwsCommandState.AwsProfile,
-			survey.WithValidator(survey.Required)); err != nil { // TODO add validator
+			survey.WithValidator(survey.Required)); err != nil { // TODO @ipcrm add validator for region
 			return err
 		}
 
 		if err := SurveyQuestionWithValidation(
 			config.ExistingBucketArn == "",
 			&survey.Input{Message: "(Optional) Specify an existing bucket ARN used for Cloudtrail logs:"},
-			&generate.GenerateAwsCommandState.ExistingBucketArn); err != nil {
+			&generate.GenerateAwsCommandState.ExistingBucketArn); err != nil { //TODO @ipcrm add validator
 			return err
 		}
 	}
@@ -56,25 +56,25 @@ func promptAwsExistingIamQuestions(config *generate.GenerateAwsTfConfiguration) 
 		return err
 	}
 
-	if err := SurveyMultipleQuestionWithValidation(generate.GenerateAwsCommandState.UseExistingIamRole, []SurveyQuestionWithValidationArgs{
+	if err := SurveyMultipleQuestionWithValidation([]SurveyQuestionWithValidationArgs{
 		{
 			Prompt:     &survey.Input{Message: "Specify an existing IAM role name for Cloudtrail access"},
 			Response:   &generate.GenerateAwsCommandState.ExistingIamRoleName,
 			Validation: generate.GenerateAwsCommandState.ExistingIamRoleName == "",
-			Opts:       []survey.AskOpt{survey.WithValidator(survey.Required)},
+			Opts:       []survey.AskOpt{survey.WithValidator(survey.Required)}, // TODO @ipcrm add validator
 		},
 		{
 			Prompt:     &survey.Input{Message: "Specify an existing IAM role ARN for Cloudtrail access"},
 			Response:   &generate.GenerateAwsCommandState.ExistingIamRoleArn,
 			Validation: generate.GenerateAwsCommandState.ExistingIamRoleArn == "",
-			Opts:       []survey.AskOpt{survey.WithValidator(survey.Required)},
+			Opts:       []survey.AskOpt{survey.WithValidator(survey.Required)}, // TODO @ipcrm add validator
 		},
 		{
 			Prompt:     &survey.Input{Message: "Specify the external ID to be used with the existing IAM role"},
 			Response:   &generate.GenerateAwsCommandState.ExistingIamRoleExternalId,
 			Validation: generate.GenerateAwsCommandState.ExistingIamRoleExternalId == "",
-			Opts:       []survey.AskOpt{survey.WithValidator(survey.Required)},
-		}}); err != nil {
+			Opts:       []survey.AskOpt{survey.WithValidator(survey.Required)}, // TODO @ipcrm add validator
+		}}, generate.GenerateAwsCommandState.UseExistingIamRole); err != nil {
 		return err
 	}
 
@@ -115,15 +115,16 @@ func promptAwsAdditionalAccountQuestions(config *generate.GenerateAwsTfConfigura
 
 	// Determine the profile for the main account
 	if err := SurveyQuestionInteractiveOnly(
-		// TODO Make this prompt better
+		// TODO @ipcrm Make this prompt better
 		&survey.Input{Message: "What is the AWS profile name for the main account?"},
 		&config.AwsProfile,
 		survey.WithValidator(survey.Required)); err != nil {
 		return nil
 	}
 
-	answers := accountAnswers{}
+	// For each account to add, collect the aws profile and region to use
 	for askAgain {
+		answers := accountAnswers{}
 		err := survey.Ask(accountQuestions, &answers)
 		if err != nil {
 			return err
@@ -138,6 +139,7 @@ func promptAwsAdditionalAccountQuestions(config *generate.GenerateAwsTfConfigura
 			return err
 		}
 	}
+	config.Profiles = accountDetails
 
 	return nil
 }
@@ -154,7 +156,6 @@ func promptAwsGenerate(config *generate.GenerateAwsTfConfiguration) error {
 	}
 
 	if err := SurveyMultipleQuestionWithValidation(
-		true,
 		[]SurveyQuestionWithValidationArgs{
 			{
 				Prompt:     &survey.Confirm{Message: "Enable Config Integration?"},
@@ -190,7 +191,7 @@ func promptAwsGenerate(config *generate.GenerateAwsTfConfiguration) error {
 	}
 
 	// Let's collect up the other AWS accounts they would like to support
-	// TODO This isn't the only time there might be sub-accounts
+	// TODO @ipcrm This isn't the only time there might be sub-accounts
 	if err := SurveyQuestionWithValidation(
 		config.UseConsolidatedCloudtrail,
 		&survey.Confirm{Message: "Are there additional AWS accounts to intergrate for Configuration?"},

@@ -65,7 +65,7 @@ type GenerateAwsTfConfigurationArgs struct {
 	ForceDestroyS3Bucket bool
 
 	// For AWS Subaccounts in consolidated CT setups
-	// TODO what about many ct/config integrations together?
+	// TODO @ipcrm what about many ct/config integrations together?
 	Profiles map[string]string
 
 	// For aws subaccounts, a quick value to check if we are configuring multiple
