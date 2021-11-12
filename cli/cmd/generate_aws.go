@@ -83,7 +83,7 @@ func promptAwsAdditionalAccountQuestions(config *generate.GenerateAwsTfConfigura
 	accountQuestions := []*survey.Question{
 		{
 			Name:     "accountProfileName",
-			Prompt:   &survey.Input{Message: "Supply the profile name for this additional AWS saccount"},
+			Prompt:   &survey.Input{Message: "Supply the profile name for this additional AWS account"},
 			Validate: survey.Required,
 		},
 		{
@@ -147,16 +147,6 @@ func setValsFromCliInput(config *generate.GenerateAwsTfConfigurationArgs) {
 
 }
 
-func validateMultiSelect(answers []string, search string) bool {
-	for _, answer := range answers {
-		if search == answer {
-			return true
-		}
-	}
-
-	return false
-}
-
 func validateInputCombinations(config *generate.GenerateAwsTfConfigurationArgs) error {
 	// Validate that at least region was set
 	if config.ConfigureCloudtrail && config.AwsRegion == "" {
@@ -175,6 +165,66 @@ func validateInputCombinations(config *generate.GenerateAwsTfConfigurationArgs) 
 			config.ExistingIamRoleName == "" ||
 			config.ExistingIamRoleExternalId == "" {
 			return errors.New("When using an existing IAM role, the existing role ARN, Name, and External ID all must be set!")
+		}
+	}
+
+	return nil
+}
+
+func askAdvancedOptions(config *generate.GenerateAwsTfConfigurationArgs) error {
+	// Construction of this slice is a bit strange at first look, but the reason for that is because we have to do string
+	// validation to know which option was selected due to how survey works // TODO @ipcrm is doing this by index easier?
+	// TODO This needs to be selective based on what was supplied
+	askCloudTrailOptions := "Additional Cloudtrail Options"
+	askIamRoleOptions := "Configure Lacework integration with an existing IAM role"
+	askAdditionalAwsAccountsOptions := "Add Additional AWS Accounts to Lacework"
+	askCustomizeOutputLocationOptions := "Customize Output Location"
+	done := "Done"
+	options := []string{askCloudTrailOptions, askIamRoleOptions, askAdditionalAwsAccountsOptions, askCustomizeOutputLocationOptions, done}
+	answer := ""
+
+	for answer != "Done" {
+		if err := SurveyQuestionInteractiveOnly(SurveyQuestionWithValidationArgs{
+			Prompt: &survey.Select{
+				Message: "Which options would you like to enable?",
+				Options: options,
+			},
+			Response: &answer,
+		}); err != nil {
+			return err
+		}
+
+		switch answer {
+		case askCloudTrailOptions:
+			if err := promptAwsCtQuestions(config); err != nil {
+				return err
+			}
+		case askIamRoleOptions:
+			config.UseExistingIamRole = true
+			if err := promptAwsExistingIamQuestions(config); err != nil {
+				return nil
+			}
+
+		case askAdditionalAwsAccountsOptions:
+			config.ConfigureSubAccounts = true
+			if err := promptAwsAdditionalAccountQuestions(config); err != nil {
+				return err
+			}
+		}
+
+		// Re-prompt
+		innerAskAgain := true
+		if err := SurveyQuestionInteractiveOnly(SurveyQuestionWithValidationArgs{
+			Checks:   []*bool{&innerAskAgain},
+			Prompt:   &survey.Confirm{Message: "Configure another advanced integration option", Default: false},
+			Response: &innerAskAgain,
+		}); err != nil {
+			return err
+		}
+
+		// TODO @ipcrm this needs improved
+		if !innerAskAgain {
+			answer = "Done"
 		}
 	}
 
@@ -216,8 +266,6 @@ func promptAwsGenerate(config *generate.GenerateAwsTfConfigurationArgs) error {
 
 	// Find out if the customer wants to specify more advanced features
 	askAdvanced := false
-	answers := []string{}
-
 	if err := SurveyQuestionInteractiveOnly(SurveyQuestionWithValidationArgs{
 		Prompt:   &survey.Confirm{Message: "Configure advanced integration options?", Default: askAdvanced},
 		Response: &askAdvanced,
@@ -225,45 +273,9 @@ func promptAwsGenerate(config *generate.GenerateAwsTfConfigurationArgs) error {
 		return err
 	}
 
-	// Construction of this slice is a bit strange at first look, but the reason for that is because we have to do string
-	// validation to know which option was selected due to how survey works // TODO @ipcrm is doing this by index easier?
-	// TODO This needs to be selective based on what was supplied
-	askCloudTrailOptions := "Additional Cloudtrail Options"
-	askIamRoleOptions := "Configure Lacework integration with an existing IAM role"
-	askAdditionalAwsAccountsOptions := "Add Additional AWS Accounts to Lacework"
-	askCustomizeOutputLocationOptions := "Customize Output Location"
-	options := []string{askCloudTrailOptions, askIamRoleOptions, askAdditionalAwsAccountsOptions, askCustomizeOutputLocationOptions}
-
-	if err := SurveyQuestionInteractiveOnly(SurveyQuestionWithValidationArgs{
-		Prompt: &survey.MultiSelect{
-			Message: "Which options would you like to enable?",
-			Options: options,
-		},
-		Checks:   []*bool{&askAdvanced},
-		Response: &answers,
-	}); err != nil {
-		return err
-	}
-
-	// Set CT Specific values
-	if validateMultiSelect(answers, askCloudTrailOptions) {
-		if err := promptAwsCtQuestions(config); err != nil {
-			return err
-		}
-	}
-
-	// Set Existing IAM Role values
-	if validateMultiSelect(answers, askIamRoleOptions) {
-		config.UseExistingIamRole = true
-		if err := promptAwsExistingIamQuestions(config); err != nil {
-			return nil
-		}
-	}
-
-	// Setup additional accounts, as required
-	if validateMultiSelect(answers, askAdditionalAwsAccountsOptions) && !cli.nonInteractive {
-		config.ConfigureSubAccounts = true
-		if err := promptAwsAdditionalAccountQuestions(config); err != nil {
+	// Keep prompting for advanced options until the say done
+	if askAdvanced {
+		if err := askAdvancedOptions(config); err != nil {
 			return err
 		}
 	}
