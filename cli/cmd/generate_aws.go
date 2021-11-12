@@ -41,16 +41,6 @@ func promptAwsCtQuestions(config *generate.GenerateAwsTfConfiguration) error {
 		return err
 	}
 
-	// Validate that at least region was set
-	if config.ConfigureCloudtrail && config.AwsRegion == "" {
-		return errors.New("AWS Region must be set when configuring Cloudtrail!")
-	}
-
-	// Validate if using an existing cloudtrail the bucket was provided
-	if config.UseExistingCloudtrail && config.ExistingBucketArn == "" {
-		return errors.New("Must supply bucket ARN when using an existing cloudtrail!")
-	}
-
 	return nil
 }
 
@@ -90,16 +80,6 @@ func promptAwsExistingIamQuestions(config *generate.GenerateAwsTfConfiguration) 
 		return err
 	}
 
-	// Validate required values got set one way or another
-	// If this was run non-interactive and parts of the data are missing, error out
-	if config.UseExistingIamRole {
-		if config.ExistingIamRoleArn == "" ||
-			config.ExistingIamRoleName == "" ||
-			config.ExistingIamRoleExternalId == "" {
-			return errors.New("When using an existing IAM role, the existing role ARN, Name, and External ID all must be set!")
-		}
-	}
-
 	return nil
 }
 
@@ -111,7 +91,7 @@ func promptAwsAdditionalAccountQuestions(config *generate.GenerateAwsTfConfigura
 	accountQuestions := []*survey.Question{
 		{
 			Name:     "accountProfileName",
-			Prompt:   &survey.Input{Message: "Supply the profile name for the AWS account"},
+			Prompt:   &survey.Input{Message: "Supply the profile name for this additional AWS saccount"},
 			Validate: survey.Required,
 		},
 		{
@@ -130,6 +110,7 @@ func promptAwsAdditionalAccountQuestions(config *generate.GenerateAwsTfConfigura
 		Prompt: &survey.Input{
 			Message: "What is the AWS profile name for the main account?", // TODO @ipcrm Make this prompt better
 			Default: config.AwsProfile,
+			Help:    "This is the main account where your cloudtrail resources are created",
 		},
 		Response: &config.AwsProfile,
 		Required: true}); err != nil {
@@ -154,23 +135,6 @@ func promptAwsAdditionalAccountQuestions(config *generate.GenerateAwsTfConfigura
 		}
 	}
 	config.Profiles = accountDetails
-
-	return nil
-}
-
-func promptAwsAdditionalAccounts(config *generate.GenerateAwsTfConfiguration) error {
-	// Let's collect up the other AWS accounts they would like to support
-	// TODO @ipcrm This isn't the only time there might be sub-accounts
-	if err := SurveyQuestionInteractiveOnly(SurveyQuestionWithValidationArgs{
-		Checks:   []*bool{&config.UseConsolidatedCloudtrail},
-		Prompt:   &survey.Confirm{Message: "Are there additional AWS accounts to intergrate for Configuration?", Default: false},
-		Response: &config.ConfigureMoreAccounts}); err != nil {
-		return err
-	}
-
-	if config.ConfigureMoreAccounts && !cli.nonInteractive {
-		promptAwsAdditionalAccountQuestions(config)
-	}
 
 	return nil
 }
@@ -206,6 +170,40 @@ func setValsFromCliInput(config *generate.GenerateAwsTfConfiguration) {
 
 }
 
+func validateMultiSelect(answers []string, search string) bool {
+	for _, answer := range answers {
+		if search == answer {
+			return true
+		}
+	}
+
+	return false
+}
+
+func validateInputCombinations(config *generate.GenerateAwsTfConfiguration) error {
+	// Validate that at least region was set
+	if config.ConfigureCloudtrail && config.AwsRegion == "" {
+		return errors.New("AWS Region must be set when configuring Cloudtrail!")
+	}
+
+	// Validate if using an existing cloudtrail the bucket was provided
+	if config.UseExistingCloudtrail && config.ExistingBucketArn == "" {
+		return errors.New("Must supply bucket ARN when using an existing cloudtrail!")
+	}
+
+	// Validate required values got set one way or another
+	// If this was run non-interactive and parts of the data are missing, error out
+	if config.UseExistingIamRole {
+		if config.ExistingIamRoleArn == "" ||
+			config.ExistingIamRoleName == "" ||
+			config.ExistingIamRoleExternalId == "" {
+			return errors.New("When using an existing IAM role, the existing role ARN, Name, and External ID all must be set!")
+		}
+	}
+
+	return nil
+}
+
 func promptAwsGenerate(config *generate.GenerateAwsTfConfiguration) error {
 	// Set vals that were passed in, where required
 	setValsFromCliInput(config)
@@ -239,18 +237,61 @@ func promptAwsGenerate(config *generate.GenerateAwsTfConfiguration) error {
 		return errors.New("Must enable cloudtrail or config!")
 	}
 
-	// Set CT Specific values
-	if err := promptAwsCtQuestions(config); err != nil {
+	// Find out if the customer wants to specify more advanced features
+	askAdvanced := false
+	answers := []string{}
+
+	if err := SurveyQuestionInteractiveOnly(SurveyQuestionWithValidationArgs{
+		Prompt:   &survey.Confirm{Message: "Configure advanced integration options?", Default: askAdvanced},
+		Response: &askAdvanced,
+	}); err != nil {
 		return err
 	}
 
+	// Construction of this slice is a bit strange at first look, but the reason for that is because we have to do string
+	// validation to know which option was selected due to how survey works // TODO @ipcrm is doing this by index easier?
+	// TODO This needs to be selective based on what was supplied
+	askCloudTrailOptions := "Additional Cloudtrail Options"
+	askIamRoleOptions := "Configure Lacework integration with an existing IAM role"
+	askAdditionalAwsAccountsOptions := "Add Additional AWS Accounts to Lacework"
+	askCustomizeOutputLocationOptions := "Customize Output Location"
+	options := []string{askCloudTrailOptions, askIamRoleOptions, askAdditionalAwsAccountsOptions, askCustomizeOutputLocationOptions}
+
+	if err := SurveyQuestionInteractiveOnly(SurveyQuestionWithValidationArgs{
+		Prompt: &survey.MultiSelect{
+			Message: "Which options would you like to enable?",
+			Options: options,
+		},
+		Checks:   []*bool{&askAdvanced},
+		Response: &answers,
+	}); err != nil {
+		return err
+	}
+
+	// Set CT Specific values
+	if validateMultiSelect(answers, askCloudTrailOptions) {
+		if err := promptAwsCtQuestions(config); err != nil {
+			return err
+		}
+	}
+
 	// Set Existing IAM Role values
-	if err := promptAwsExistingIamQuestions(config); err != nil {
-		return nil
+	if validateMultiSelect(answers, askIamRoleOptions) {
+		if err := promptAwsExistingIamQuestions(config); err != nil {
+			return nil
+		}
 	}
 
 	// Setup additional accounts, as required
-	if err := promptAwsAdditionalAccounts(config); err != nil {
+	if validateMultiSelect(answers, askAdditionalAwsAccountsOptions) && !cli.nonInteractive {
+		config.ConfigureSubAccounts = true
+		if err := promptAwsAdditionalAccountQuestions(config); err != nil {
+			return err
+		}
+	}
+
+	// Validate the must haves for input combinations
+	if err := validateInputCombinations(config); err != nil {
 		return err
 	}
 

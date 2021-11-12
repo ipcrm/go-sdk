@@ -69,7 +69,7 @@ type GenerateAwsTfConfigurationArgs struct {
 	Profiles map[string]string
 
 	// For aws subaccounts, a quick value to check if we are configuring multiple
-	ConfigureMoreAccounts bool
+	ConfigureSubAccounts bool
 
 	// Optional. Lacework Profile to use
 	LaceworkProfile string
@@ -96,13 +96,13 @@ func addRequiredProviders() *hclwrite.Block {
 
 func createAwsProviderBlock(args *GenerateAwsTfConfigurationArgs) []*hclwrite.Block {
 	blocks := []*hclwrite.Block{}
-	if args.AwsRegion != "" || args.ConfigureMoreAccounts {
+	if args.AwsRegion != "" || args.ConfigureSubAccounts {
 		attrs := map[string]interface{}{}
 		if args.AwsRegion != "" {
 			attrs["region"] = args.AwsRegion
 		}
 
-		if args.ConfigureMoreAccounts {
+		if args.ConfigureSubAccounts {
 			attrs["alias"] = "main"
 			attrs["profile"] = args.AwsProfile
 		}
@@ -113,7 +113,7 @@ func createAwsProviderBlock(args *GenerateAwsTfConfigurationArgs) []*hclwrite.Bl
 		}))
 	}
 
-	if args.ConfigureMoreAccounts {
+	if args.ConfigureSubAccounts {
 		for profile, region := range args.Profiles {
 			blocks = append(blocks, CreateProvider(&HclProvider{
 				Name: "aws",
@@ -154,7 +154,7 @@ func createConfigBlock(args *GenerateAwsTfConfigurationArgs) []*hclwrite.Block {
 			Version: version,
 		}
 
-		if args.ConfigureMoreAccounts {
+		if args.ConfigureSubAccounts {
 			block.ProviderDetails = map[string]string{
 				"aws": "aws.main",
 			}
@@ -217,7 +217,7 @@ func createCloudtrailBlock(args *GenerateAwsTfConfigurationArgs) *hclwrite.Block
 			data.Attributes["bucket_arn"] = args.ExistingBucketArn
 		}
 
-		if args.ConfigureMoreAccounts {
+		if args.ConfigureSubAccounts {
 			data.ProviderDetails = map[string]string{
 				"aws": "aws.main",
 			}

@@ -54,7 +54,7 @@ var (
 				UseConsolidatedCloudtrail: generate.GenerateAwsCommandState.UseConsolidatedCloudtrail,
 				ForceDestroyS3Bucket:      generate.GenerateAwsCommandState.ForceDestroyS3Bucket,
 				Profiles:                  generate.GenerateAwsCommandState.Profiles,
-				ConfigureMoreAccounts:     generate.GenerateAwsCommandState.ConfigureMoreAccounts,
+				ConfigureSubAccounts:      generate.GenerateAwsCommandState.ConfigureSubAccounts,
 				LaceworkProfile:           generate.GenerateAwsCommandState.LaceworkProfile,
 			})
 
@@ -113,6 +113,11 @@ func init() {
 		"consolidatedcloudtrail",
 		false,
 		"Use consolidated trail?")
+	generateAwsTfCommand.PersistentFlags().BoolVar(
+		&generate.GenerateAwsCommandState.UseExistingCloudtrail,
+		"useexistingcloudtrail",
+		false,
+		"Use existing trail?")
 	generateAwsTfCommand.PersistentFlags().BoolVar(
 		&generate.GenerateAwsCommandState.ForceDestroyS3BucketCli,
 		"forcedestroys3",

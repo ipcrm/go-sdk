@@ -130,7 +130,7 @@ func TestConsolidatedCtWithMultipleAccounts(t *testing.T) {
 		ConfigureCloudtrail:       true,
 		ConfigureConfig:           true,
 		UseConsolidatedCloudtrail: true,
-		ConfigureMoreAccounts:     true,
+		ConfigureSubAccounts:      true,
 		AwsProfile:                "main",
 		Profiles: map[string]string{
 			"subaccount1": "us-east-1",
