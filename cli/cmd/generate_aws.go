@@ -7,11 +7,6 @@ import (
 )
 
 func promptAwsCtQuestions(config *generate.GenerateAwsTfConfiguration) error {
-	// Set vals from CLI
-	if config.ConsolidatedCtCli {
-		config.UseConsolidatedCloudtrail = true
-	}
-
 	// Only ask these questions if configure cloudtrail is true
 	if err := SurveyMultipleQuestionWithValidation([]SurveyQuestionWithValidationArgs{
 		{
@@ -35,6 +30,17 @@ func promptAwsCtQuestions(config *generate.GenerateAwsTfConfiguration) error {
 		return err
 	}
 
+	// If a new bucket is to be created; should the force destroy bit be set?
+	newBucket := config.ExistingBucketArn == ""
+	if err := SurveyQuestionInteractiveOnly(SurveyQuestionWithValidationArgs{
+		Prompt: &survey.Confirm{
+			Message: "Should the new S3 bucket have force destroy enabled?",
+			Default: config.ForceDestroyS3Bucket},
+		Response: &config.ForceDestroyS3Bucket,
+		Checks:   []*bool{&config.ConfigureCloudtrail, &newBucket}}); err != nil {
+		return err
+	}
+
 	// Validate that at least region was set
 	if config.ConfigureCloudtrail && config.AwsRegion == "" {
 		return errors.New("AWS Region must be set when configuring Cloudtrail!")
@@ -49,14 +55,6 @@ func promptAwsCtQuestions(config *generate.GenerateAwsTfConfiguration) error {
 }
 
 func promptAwsExistingIamQuestions(config *generate.GenerateAwsTfConfiguration) error {
-	// If any of these were set in the command line args we need to set useexistingiamrole to true and prompt for what we
-	// are missing
-	if config.ExistingIamRoleArn != "" ||
-		config.ExistingIamRoleName != "" ||
-		config.ExistingIamRoleExternalId != "" {
-		config.UseExistingIamRole = true
-	}
-
 	if err := SurveyQuestionInteractiveOnly(SurveyQuestionWithValidationArgs{
 		Checks:   []*bool{&config.ConfigureCloudtrail},
 		Prompt:   &survey.Confirm{Message: "(Optional) Use an existing IAM Role?"},
@@ -160,7 +158,24 @@ func promptAwsAdditionalAccountQuestions(config *generate.GenerateAwsTfConfigura
 	return nil
 }
 
-func promptAwsGenerate(config *generate.GenerateAwsTfConfiguration) error {
+func promptAwsAdditionalAccounts(config *generate.GenerateAwsTfConfiguration) error {
+	// Let's collect up the other AWS accounts they would like to support
+	// TODO @ipcrm This isn't the only time there might be sub-accounts
+	if err := SurveyQuestionInteractiveOnly(SurveyQuestionWithValidationArgs{
+		Checks:   []*bool{&config.UseConsolidatedCloudtrail},
+		Prompt:   &survey.Confirm{Message: "Are there additional AWS accounts to intergrate for Configuration?", Default: false},
+		Response: &config.ConfigureMoreAccounts}); err != nil {
+		return err
+	}
+
+	if config.ConfigureMoreAccounts && !cli.nonInteractive {
+		promptAwsAdditionalAccountQuestions(config)
+	}
+
+	return nil
+}
+
+func setValsFromCliInput(config *generate.GenerateAwsTfConfiguration) {
 	// Determine if configuring 'config' integration was passed
 	if config.ConfigureConfigCli {
 		config.ConfigureConfig = true
@@ -171,6 +186,31 @@ func promptAwsGenerate(config *generate.GenerateAwsTfConfiguration) error {
 		config.ConfigureCloudtrail = true
 	}
 
+	// If config.ConsolidatedCtCli was supplied, enable ConsolidatedCt // TODO remove
+	if config.ConsolidatedCtCli {
+		config.UseConsolidatedCloudtrail = true
+	}
+
+	// If a bucket arn was supplied, we are using an existing ct
+	if config.ExistingBucketArn != "" {
+		config.UseExistingCloudtrail = true
+	}
+
+	// If any of these were set in the command line args we need to set useexistingiamrole to true and prompt for what we
+	// are missing
+	if config.ExistingIamRoleArn != "" ||
+		config.ExistingIamRoleName != "" ||
+		config.ExistingIamRoleExternalId != "" {
+		config.UseExistingIamRole = true
+	}
+
+}
+
+func promptAwsGenerate(config *generate.GenerateAwsTfConfiguration) error {
+	// Set vals that were passed in, where required
+	setValsFromCliInput(config)
+
+	// This are the core questions that should be asked.  Region required for provider block
 	if err := SurveyMultipleQuestionWithValidation(
 		[]SurveyQuestionWithValidationArgs{
 			{
@@ -194,40 +234,25 @@ func promptAwsGenerate(config *generate.GenerateAwsTfConfiguration) error {
 		return err
 	}
 
+	// Validate one of config or cloudtrail was enabled; otherwise error out
+	if !config.ConfigureCloudtrail && !config.ConfigureConfig {
+		return errors.New("Must enable cloudtrail or config!")
+	}
+
 	// Set CT Specific values
-	err := promptAwsCtQuestions(config)
-	if err != nil {
+	if err := promptAwsCtQuestions(config); err != nil {
 		return err
 	}
 
 	// Set Existing IAM Role values
-	err = promptAwsExistingIamQuestions(config)
-	if err != nil {
+	if err := promptAwsExistingIamQuestions(config); err != nil {
+		return nil
+	}
+
+	// Setup additional accounts, as required
+	if err := promptAwsAdditionalAccounts(config); err != nil {
 		return err
 	}
 
-	// If a new bucket is to be created; should the force destroy bit be set?
-	newBucket := config.ExistingBucketArn == ""
-	if err := SurveyQuestionInteractiveOnly(SurveyQuestionWithValidationArgs{
-		Prompt: &survey.Confirm{
-			Message: "Should the new S3 bucket have force destroy enabled?",
-			Default: config.ForceDestroyS3Bucket},
-		Response: &config.ForceDestroyS3Bucket,
-		Checks:   []*bool{&config.ConfigureCloudtrail, &newBucket}}); err != nil {
-		return err
-	}
-
-	// Let's collect up the other AWS accounts they would like to support
-	// TODO @ipcrm This isn't the only time there might be sub-accounts
-	if err := SurveyQuestionInteractiveOnly(SurveyQuestionWithValidationArgs{
-		Checks:   []*bool{&config.UseConsolidatedCloudtrail},
-		Prompt:   &survey.Confirm{Message: "Are there additional AWS accounts to intergrate for Configuration?", Default: false},
-		Response: &config.ConfigureMoreAccounts}); err != nil {
-		return err
-	}
-
-	if config.ConfigureMoreAccounts && !cli.nonInteractive {
-		promptAwsAdditionalAccountQuestions(config)
-	}
 	return nil
 }

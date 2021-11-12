@@ -55,3 +55,13 @@ func TestMissingExistingCloudtrailParams(t *testing.T) {
 	assert.Error(t, err)
 	assert.Equal(t, "Must supply bucket ARN when using an existing cloudtrail!", err.Error())
 }
+
+func TestMissingValidEntityToConfigure(t *testing.T) {
+	toggleNonInteractive()
+	defer toggleNonInteractive()
+
+	data := generate.GenerateAwsTfConfiguration{}
+	err := promptAwsGenerate(&data)
+	assert.Error(t, err)
+	assert.Equal(t, "Must enable cloudtrail or config!", err.Error())
+}
