@@ -19,10 +19,16 @@ func promptAwsCtQuestions(config *generate.GenerateAwsTfConfiguration) error {
 			Response: &config.UseConsolidatedCloudtrail,
 		},
 		{
+			Prompt:   &survey.Confirm{Message: "Use existing cloudtrail?", Default: config.UseExistingCloudtrail},
+			Response: &config.UseExistingCloudtrail,
+		},
+		{
 			Prompt: &survey.Input{
-				Message: "(Optional) Specify an existing bucket ARN used for Cloudtrail logs:",
+				Message: "Specify an existing bucket ARN used for Cloudtrail logs:",
 				Default: config.ExistingBucketArn,
 			},
+			Checks:   []*bool{&config.UseExistingCloudtrail},
+			Required: true,
 			Response: &config.ExistingBucketArn,
 		},
 	}, config.ConfigureCloudtrail); err != nil {
@@ -32,6 +38,11 @@ func promptAwsCtQuestions(config *generate.GenerateAwsTfConfiguration) error {
 	// Validate that at least region was set
 	if config.ConfigureCloudtrail && config.AwsRegion == "" {
 		return errors.New("AWS Region must be set when configuring Cloudtrail!")
+	}
+
+	// Validate if using an existing cloudtrail the bucket was provided
+	if config.UseExistingCloudtrail && config.ExistingBucketArn == "" {
+		return errors.New("Must supply bucket ARN when using an existing cloudtrail!")
 	}
 
 	return nil

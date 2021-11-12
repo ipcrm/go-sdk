@@ -41,3 +41,17 @@ func TestMissingExistingIamRoleParams(t *testing.T) {
 	// This should error out, we need to set all existing iam role details
 	assert.Error(t, err)
 }
+
+func TestMissingExistingCloudtrailParams(t *testing.T) {
+	toggleNonInteractive()
+	defer toggleNonInteractive()
+
+	data := generate.GenerateAwsTfConfiguration{}
+	data.ConfigureCloudtrail = true
+	data.UseExistingCloudtrail = true
+	data.AwsRegion = "us-east-2"
+
+	err := promptAwsGenerate(&data)
+	assert.Error(t, err)
+	assert.Equal(t, "Must supply bucket ARN when using an existing cloudtrail!", err.Error())
+}
