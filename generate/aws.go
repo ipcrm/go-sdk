@@ -7,21 +7,8 @@ import (
 )
 
 var (
-	GenerateAwsCommandState = &GenerateAwsTfConfiguration{}
+	GenerateAwsCommandState = &GenerateAwsTfConfigurationArgs{}
 )
-
-type GenerateAwsTfConfiguration struct {
-	GenerateAwsTfConfigurationArgs
-
-	// Internal CLI use
-	ConfigureCloudtrailCli bool
-	// Internal CLI use
-	ConfigureConfigCli bool
-	// Internal CLI use
-	ConsolidatedCtCli bool
-	// Internal CLI use
-	ForceDestroyS3BucketCli bool
-}
 
 type GenerateAwsTfConfigurationArgs struct {
 	// Should we configure cloudtrail integration in LW?

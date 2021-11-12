@@ -39,25 +39,7 @@ var (
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Generate TF Code
 			cli.StartProgress("Generating Terraform Code...")
-			hcl := generate.NewAwsTFConfiguration(&generate.GenerateAwsTfConfigurationArgs{
-				ConfigureCloudtrail:       generate.GenerateAwsCommandState.ConfigureCloudtrail,
-				ConfigureConfig:           generate.GenerateAwsCommandState.ConfigureConfig,
-				AwsRegion:                 generate.GenerateAwsCommandState.AwsRegion,
-				AwsProfile:                generate.GenerateAwsCommandState.AwsProfile,
-				UseExistingCloudtrail:     generate.GenerateAwsCommandState.UseExistingCloudtrail,
-				ExistingBucketArn:         generate.GenerateAwsCommandState.ExistingBucketArn,
-				ExistingIamRoleName:       generate.GenerateAwsCommandState.ExistingIamRoleName,
-				ExistingIamRoleArn:        generate.GenerateAwsCommandState.ExistingIamRoleArn,
-				ExistingIamRoleExternalId: generate.GenerateAwsCommandState.ExistingIamRoleExternalId,
-				ExistingSnsTopicArn:       generate.GenerateAwsCommandState.ExistingSnsTopicArn,
-				UseExistingIamRole:        generate.GenerateAwsCommandState.UseExistingIamRole,
-				UseConsolidatedCloudtrail: generate.GenerateAwsCommandState.UseConsolidatedCloudtrail,
-				ForceDestroyS3Bucket:      generate.GenerateAwsCommandState.ForceDestroyS3Bucket,
-				Profiles:                  generate.GenerateAwsCommandState.Profiles,
-				ConfigureSubAccounts:      generate.GenerateAwsCommandState.ConfigureSubAccounts,
-				LaceworkProfile:           generate.GenerateAwsCommandState.LaceworkProfile,
-			})
-
+			hcl := generate.NewAwsTFConfiguration(generate.GenerateAwsCommandState)
 			return writeHclOutput(hcl, cmd)
 		},
 		PreRunE: func(_ *cobra.Command, _ []string) error {
@@ -76,9 +58,9 @@ func init() {
 	// add flags to sub commands
 	// TODO Share the help with the interactive generation
 	generateAwsTfCommand.PersistentFlags().BoolVar(
-		&generate.GenerateAwsCommandState.ConfigureCloudtrailCli, "cloudtrail", false, "Configure Cloudtrail?")
+		&generate.GenerateAwsCommandState.ConfigureCloudtrail, "cloudtrail", false, "Configure Cloudtrail?")
 	generateAwsTfCommand.PersistentFlags().BoolVar(
-		&generate.GenerateAwsCommandState.ConfigureConfigCli, "config", false, "Enable Config Integration?")
+		&generate.GenerateAwsCommandState.ConfigureConfig, "config", false, "Enable Config Integration?")
 	generateAwsTfCommand.PersistentFlags().StringVar(
 		&generate.GenerateAwsCommandState.AwsRegion, "awsregion", "", "Specify AWS Region")
 	generateAwsTfCommand.PersistentFlags().StringVar(
@@ -109,7 +91,7 @@ func init() {
 		"",
 		"Specify existing SNS topic ARN")
 	generateAwsTfCommand.PersistentFlags().BoolVar(
-		&generate.GenerateAwsCommandState.ConsolidatedCtCli,
+		&generate.GenerateAwsCommandState.UseConsolidatedCloudtrail,
 		"consolidatedcloudtrail",
 		false,
 		"Use consolidated trail?")
@@ -119,7 +101,7 @@ func init() {
 		false,
 		"Use existing trail?")
 	generateAwsTfCommand.PersistentFlags().BoolVar(
-		&generate.GenerateAwsCommandState.ForceDestroyS3BucketCli,
+		&generate.GenerateAwsCommandState.ForceDestroyS3Bucket,
 		"forcedestroys3",
 		false,
 		"Enable force destroy S3 bucket?")

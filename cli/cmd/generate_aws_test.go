@@ -15,23 +15,21 @@ func TestGenerateMostBasicArgs(t *testing.T) {
 	toggleNonInteractive()
 	defer toggleNonInteractive()
 
-	data := generate.GenerateAwsTfConfiguration{}
-	data.ConfigureCloudtrailCli = true
-	data.ConfigureConfigCli = true
+	data := generate.GenerateAwsTfConfigurationArgs{}
+	data.ConfigureCloudtrail = true
+	data.ConfigureConfig = true
 	data.AwsRegion = "us-east-2"
 	err := promptAwsGenerate(&data)
 
 	assert.Nil(t, err)
-	assert.True(t, data.ConfigureCloudtrail)
-	assert.True(t, data.ConfigureConfig)
 }
 
 func TestMissingExistingIamRoleParams(t *testing.T) {
 	toggleNonInteractive()
 	defer toggleNonInteractive()
 
-	data := generate.GenerateAwsTfConfiguration{}
-	data.ConfigureCloudtrailCli = true
+	data := generate.GenerateAwsTfConfigurationArgs{}
+	data.ConfigureCloudtrail = true
 	data.ExistingIamRoleArn = "blue"
 	err := promptAwsGenerate(&data)
 
@@ -46,7 +44,7 @@ func TestMissingExistingCloudtrailParams(t *testing.T) {
 	toggleNonInteractive()
 	defer toggleNonInteractive()
 
-	data := generate.GenerateAwsTfConfiguration{}
+	data := generate.GenerateAwsTfConfigurationArgs{}
 	data.ConfigureCloudtrail = true
 	data.UseExistingCloudtrail = true
 	data.AwsRegion = "us-east-2"
@@ -60,7 +58,7 @@ func TestMissingValidEntityToConfigure(t *testing.T) {
 	toggleNonInteractive()
 	defer toggleNonInteractive()
 
-	data := generate.GenerateAwsTfConfiguration{}
+	data := generate.GenerateAwsTfConfigurationArgs{}
 	err := promptAwsGenerate(&data)
 	assert.Error(t, err)
 	assert.Equal(t, "Must enable cloudtrail or config!", err.Error())

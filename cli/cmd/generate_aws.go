@@ -6,7 +6,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-func promptAwsCtQuestions(config *generate.GenerateAwsTfConfiguration) error {
+func promptAwsCtQuestions(config *generate.GenerateAwsTfConfigurationArgs) error {
 	// Only ask these questions if configure cloudtrail is true
 	if err := SurveyMultipleQuestionWithValidation([]SurveyQuestionWithValidationArgs{
 		{
@@ -44,15 +44,7 @@ func promptAwsCtQuestions(config *generate.GenerateAwsTfConfiguration) error {
 	return nil
 }
 
-func promptAwsExistingIamQuestions(config *generate.GenerateAwsTfConfiguration) error {
-	if err := SurveyQuestionInteractiveOnly(SurveyQuestionWithValidationArgs{
-		Checks:   []*bool{&config.ConfigureCloudtrail},
-		Prompt:   &survey.Confirm{Message: "(Optional) Use an existing IAM Role?"},
-		Response: &config.UseExistingIamRole,
-	}); err != nil {
-		return err
-	}
-
+func promptAwsExistingIamQuestions(config *generate.GenerateAwsTfConfigurationArgs) error {
 	if err := SurveyMultipleQuestionWithValidation([]SurveyQuestionWithValidationArgs{
 		{
 			Prompt: &survey.Input{
@@ -83,7 +75,7 @@ func promptAwsExistingIamQuestions(config *generate.GenerateAwsTfConfiguration) 
 	return nil
 }
 
-func promptAwsAdditionalAccountQuestions(config *generate.GenerateAwsTfConfiguration) error {
+func promptAwsAdditionalAccountQuestions(config *generate.GenerateAwsTfConfigurationArgs) error {
 	type accountAnswers struct {
 		AccountProfileName   string `survey:"accountProfileName"`
 		AccountProfileRegion string `survey:"accountProfileRegion"`
@@ -139,22 +131,7 @@ func promptAwsAdditionalAccountQuestions(config *generate.GenerateAwsTfConfigura
 	return nil
 }
 
-func setValsFromCliInput(config *generate.GenerateAwsTfConfiguration) {
-	// Determine if configuring 'config' integration was passed
-	if config.ConfigureConfigCli {
-		config.ConfigureConfig = true
-	}
-
-	// Determine if configuring 'cloudtrail' integration was passed
-	if config.ConfigureCloudtrailCli {
-		config.ConfigureCloudtrail = true
-	}
-
-	// If config.ConsolidatedCtCli was supplied, enable ConsolidatedCt // TODO remove
-	if config.ConsolidatedCtCli {
-		config.UseConsolidatedCloudtrail = true
-	}
-
+func setValsFromCliInput(config *generate.GenerateAwsTfConfigurationArgs) {
 	// If a bucket arn was supplied, we are using an existing ct
 	if config.ExistingBucketArn != "" {
 		config.UseExistingCloudtrail = true
@@ -180,7 +157,7 @@ func validateMultiSelect(answers []string, search string) bool {
 	return false
 }
 
-func validateInputCombinations(config *generate.GenerateAwsTfConfiguration) error {
+func validateInputCombinations(config *generate.GenerateAwsTfConfigurationArgs) error {
 	// Validate that at least region was set
 	if config.ConfigureCloudtrail && config.AwsRegion == "" {
 		return errors.New("AWS Region must be set when configuring Cloudtrail!")
@@ -204,7 +181,7 @@ func validateInputCombinations(config *generate.GenerateAwsTfConfiguration) erro
 	return nil
 }
 
-func promptAwsGenerate(config *generate.GenerateAwsTfConfiguration) error {
+func promptAwsGenerate(config *generate.GenerateAwsTfConfigurationArgs) error {
 	// Set vals that were passed in, where required
 	setValsFromCliInput(config)
 
@@ -277,6 +254,7 @@ func promptAwsGenerate(config *generate.GenerateAwsTfConfiguration) error {
 
 	// Set Existing IAM Role values
 	if validateMultiSelect(answers, askIamRoleOptions) {
+		config.UseExistingIamRole = true
 		if err := promptAwsExistingIamQuestions(config); err != nil {
 			return nil
 		}
