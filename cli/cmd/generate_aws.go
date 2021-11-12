@@ -12,31 +12,26 @@ func promptAwsCtQuestions(config *generate.GenerateAwsTfConfiguration) error {
 		config.UseConsolidatedCloudtrail = true
 	}
 
-	// Evaulate the rest of the params
-	if config.ConfigureCloudtrail {
-		if err := SurveyQuestionWithValidation(
-			!config.UseConsolidatedCloudtrail,
-			&survey.Confirm{Message: "Use consolidated Cloudtrail?"},
-			&generate.GenerateAwsCommandState.UseConsolidatedCloudtrail); err != nil {
-			return err
-		}
-
-		if err := SurveyQuestionWithValidation(
-			config.AwsRegion == "",
-			&survey.Input{Message: "Specify the AWS region Cloudtrail, SNS, and S3 resources should use:"},
-			&generate.GenerateAwsCommandState.AwsProfile,
-			survey.WithValidator(survey.Required)); err != nil { // TODO @ipcrm add validator for region
-			return err
-		}
-
-		if err := SurveyQuestionWithValidation(
-			config.ExistingBucketArn == "",
-			&survey.Input{Message: "(Optional) Specify an existing bucket ARN used for Cloudtrail logs:"},
-			&generate.GenerateAwsCommandState.ExistingBucketArn); err != nil { //TODO @ipcrm add validator
-			return err
-		}
+	// Only ask these questions if configure cloudtrail is true
+	if err := SurveyMultipleQuestionWithValidation([]SurveyQuestionWithValidationArgs{
+		{
+			Check:    !config.UseConsolidatedCloudtrail,
+			Prompt:   &survey.Confirm{Message: "Use consolidated Cloudtrail?"},
+			Response: &generate.GenerateAwsCommandState.UseConsolidatedCloudtrail,
+		},
+		{
+			Check:    config.AwsRegion == "",
+			Prompt:   &survey.Input{Message: "Specify the AWS region Cloudtrail, SNS, and S3 resources should use:"},
+			Response: &generate.GenerateAwsCommandState.AwsRegion,
+		},
+		{
+			Check:    config.ExistingBucketArn == "",
+			Prompt:   &survey.Input{Message: "(Optional) Specify an existing bucket ARN used for Cloudtrail logs:"},
+			Response: &generate.GenerateAwsCommandState.ExistingBucketArn,
+		},
+	}, config.ConfigureCloudtrail); err != nil {
+		return err
 	}
-
 	return nil
 }
 
@@ -58,22 +53,22 @@ func promptAwsExistingIamQuestions(config *generate.GenerateAwsTfConfiguration) 
 
 	if err := SurveyMultipleQuestionWithValidation([]SurveyQuestionWithValidationArgs{
 		{
-			Prompt:     &survey.Input{Message: "Specify an existing IAM role name for Cloudtrail access"},
-			Response:   &generate.GenerateAwsCommandState.ExistingIamRoleName,
-			Validation: generate.GenerateAwsCommandState.ExistingIamRoleName == "",
-			Opts:       []survey.AskOpt{survey.WithValidator(survey.Required)}, // TODO @ipcrm add validator
+			Prompt:   &survey.Input{Message: "Specify an existing IAM role name for Cloudtrail access"},
+			Response: &generate.GenerateAwsCommandState.ExistingIamRoleName,
+			Check:    generate.GenerateAwsCommandState.ExistingIamRoleName == "",
+			Opts:     []survey.AskOpt{survey.WithValidator(survey.Required)}, // TODO @ipcrm add validator
 		},
 		{
-			Prompt:     &survey.Input{Message: "Specify an existing IAM role ARN for Cloudtrail access"},
-			Response:   &generate.GenerateAwsCommandState.ExistingIamRoleArn,
-			Validation: generate.GenerateAwsCommandState.ExistingIamRoleArn == "",
-			Opts:       []survey.AskOpt{survey.WithValidator(survey.Required)}, // TODO @ipcrm add validator
+			Prompt:   &survey.Input{Message: "Specify an existing IAM role ARN for Cloudtrail access"},
+			Response: &generate.GenerateAwsCommandState.ExistingIamRoleArn,
+			Check:    generate.GenerateAwsCommandState.ExistingIamRoleArn == "",
+			Opts:     []survey.AskOpt{survey.WithValidator(survey.Required)}, // TODO @ipcrm add validator
 		},
 		{
-			Prompt:     &survey.Input{Message: "Specify the external ID to be used with the existing IAM role"},
-			Response:   &generate.GenerateAwsCommandState.ExistingIamRoleExternalId,
-			Validation: generate.GenerateAwsCommandState.ExistingIamRoleExternalId == "",
-			Opts:       []survey.AskOpt{survey.WithValidator(survey.Required)}, // TODO @ipcrm add validator
+			Prompt:   &survey.Input{Message: "Specify the external ID to be used with the existing IAM role"},
+			Response: &generate.GenerateAwsCommandState.ExistingIamRoleExternalId,
+			Check:    generate.GenerateAwsCommandState.ExistingIamRoleExternalId == "",
+			Opts:     []survey.AskOpt{survey.WithValidator(survey.Required)}, // TODO @ipcrm add validator
 		}}, generate.GenerateAwsCommandState.UseExistingIamRole); err != nil {
 		return err
 	}
@@ -158,14 +153,14 @@ func promptAwsGenerate(config *generate.GenerateAwsTfConfiguration) error {
 	if err := SurveyMultipleQuestionWithValidation(
 		[]SurveyQuestionWithValidationArgs{
 			{
-				Prompt:     &survey.Confirm{Message: "Enable Config Integration?"},
-				Validation: !config.ConfigureConfigCli && !config.ConfigureConfig,
-				Response:   &config.ConfigureConfig,
+				Prompt:   &survey.Confirm{Message: "Enable Config Integration?"},
+				Check:    !config.ConfigureConfigCli && !config.ConfigureConfig,
+				Response: &config.ConfigureConfig,
 			},
 			{
-				Prompt:     &survey.Confirm{Message: "Enable Cloudtrail Integration?"},
-				Validation: !config.ConfigureCloudtrailCli && !config.ConfigureCloudtrail,
-				Response:   &config.ConfigureCloudtrail,
+				Prompt:   &survey.Confirm{Message: "Enable Cloudtrail Integration?"},
+				Check:    !config.ConfigureCloudtrailCli && !config.ConfigureCloudtrail,
+				Response: &config.ConfigureCloudtrail,
 			}}); err != nil {
 		return err
 	}

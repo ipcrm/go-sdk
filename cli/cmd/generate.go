@@ -148,10 +148,10 @@ func SurveyQuestionWithValidation(check bool, p survey.Prompt, response interfac
 }
 
 type SurveyQuestionWithValidationArgs struct {
-	Prompt     survey.Prompt
-	Validation bool
-	Response   interface{}
-	Opts       []survey.AskOpt
+	Prompt   survey.Prompt
+	Check    bool
+	Response interface{}
+	Opts     []survey.AskOpt
 }
 
 // Prompt for many values at once
@@ -169,7 +169,7 @@ func SurveyMultipleQuestionWithValidation(questions []SurveyQuestionWithValidati
 	// Ask questions
 	if ok {
 		for _, qs := range questions {
-			if err := SurveyQuestionWithValidation(qs.Validation, qs.Prompt, qs.Response, qs.Opts...); err != nil {
+			if err := SurveyQuestionWithValidation(qs.Check, qs.Prompt, qs.Response, qs.Opts...); err != nil {
 				return err
 			}
 		}
@@ -179,12 +179,14 @@ func SurveyMultipleQuestionWithValidation(questions []SurveyQuestionWithValidati
 
 // Write HCL output
 func writeHclOutput(hcl string, cmd *cobra.Command) error {
-	// TODO Improve all this && Make output dir configurable
 	// Write out
-
 	var dirname string
 	dirname, err := cmd.Flags().GetString("output")
 	if err != nil {
+		return err
+	}
+
+	if dirname == "" {
 		dirname, err = os.UserHomeDir()
 		if err != nil {
 			return err
