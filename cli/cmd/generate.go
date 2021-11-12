@@ -156,6 +156,9 @@ func SurveyQuestionInteractiveOnly(question SurveyQuestionWithValidationArgs) er
 		question.Opts = append(question.Opts, survey.WithValidator(survey.Required))
 	}
 
+	// Add custom icon
+	question.Opts = append(question.Opts, survey.WithIcons(promptIconsFunc))
+
 	// If noninteractive is not set, ask the question
 	if !cli.nonInteractive {
 		err := survey.AskOne(question.Prompt, question.Response, question.Opts...)
