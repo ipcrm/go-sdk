@@ -128,30 +128,43 @@ func init() {
 	generateTfCommand.AddCommand(generateAwsTfCommand)
 }
 
+type SurveyQuestionWithValidationArgs struct {
+	Prompt   survey.Prompt
+	Checks   []*bool
+	Response interface{}
+	Opts     []survey.AskOpt
+	Required bool
+}
+
 // Only prompt for an input if the CLI is interactive
-func SurveyQuestionInteractiveOnly(p survey.Prompt, response interface{}, opts ...survey.AskOpt) error {
+func SurveyQuestionInteractiveOnly(question SurveyQuestionWithValidationArgs) error {
+	// Do validations pass?
+	ok := true
+	for _, v := range question.Checks {
+		if !*v {
+			ok = false
+		}
+	}
+
+	// If the optional check doesn't pass, skip
+	if !ok {
+		return nil
+	}
+
+	// If required is set, add that question opt
+	if question.Required {
+		question.Opts = append(question.Opts, survey.WithValidator(survey.Required))
+	}
+
+	// If noninteractive is not set, ask the question
 	if !cli.nonInteractive {
-		err := survey.AskOne(p, response, opts...)
+		err := survey.AskOne(question.Prompt, question.Response, question.Opts...)
 		if err != nil {
 			return err
 		}
 	}
-	return nil
-}
 
-// Only prompt for an input if the CLI is interactive and check is true
-func SurveyQuestionWithValidation(check bool, p survey.Prompt, response interface{}, opts ...survey.AskOpt) error {
-	if check {
-		return SurveyQuestionInteractiveOnly(p, response, opts...)
-	}
 	return nil
-}
-
-type SurveyQuestionWithValidationArgs struct {
-	Prompt   survey.Prompt
-	Check    bool
-	Response interface{}
-	Opts     []survey.AskOpt
 }
 
 // Prompt for many values at once
@@ -169,7 +182,7 @@ func SurveyMultipleQuestionWithValidation(questions []SurveyQuestionWithValidati
 	// Ask questions
 	if ok {
 		for _, qs := range questions {
-			if err := SurveyQuestionWithValidation(qs.Check, qs.Prompt, qs.Response, qs.Opts...); err != nil {
+			if err := SurveyQuestionInteractiveOnly(qs); err != nil {
 				return err
 			}
 		}
